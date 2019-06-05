@@ -1007,6 +1007,7 @@ def build_overlap(omega: complex, dxes: List[np.ndarray], eps: List[np.ndarray],
     # Increase/decrease C to emit desired power.
     for k in range(len(C)):
         C[k] *= np.sqrt(power)
+
     return C
 
 

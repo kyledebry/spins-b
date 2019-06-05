@@ -219,7 +219,7 @@ class CubicParam(Parametrization):
             raise ValueError('Invalid initial value')
 
         # Make the interpolation matrix.
-        #periodicity_phi2f = np.logical_and(periodicity, np.logical_not(periods))
+        # periodicity_phi2f = np.logical_and(periodicity, np.logical_not(periods))
         phi2f, _, _ = cubic_utils.CubicMatrices(self.x_z, self.y_z, self.x_p,
                                                 self.y_p, periodicity)
         self.vec2f = phi2f @ self.geometry_matrix
@@ -244,11 +244,11 @@ class CubicParam(Parametrization):
         z_cubic = self.vec2f @ self.vector
         return sparse.diags(2 * self.k * np.exp(-self.k * (2 * z_cubic - 1)) /
                             (1 + np.exp(-self.k *
-                                        (2 * z_cubic - 1)))**2) @ self.vec2f
+                                        (2 * z_cubic - 1))) ** 2) @ self.vec2f
 
     def get_bounds(self):
         vec_len = len(self.vector)
-        return ((self.lower_bound,) * vec_len, (self.upper_bound,) * vec_len)
+        return (self.lower_bound,) * vec_len, (self.upper_bound,) * vec_len
 
     def project(self) -> None:
         self.vector = np.clip(self.vector, self.lower_bound, self.upper_bound)
@@ -261,7 +261,7 @@ class CubicParam(Parametrization):
 
     def serialize(self) -> Dict:
         return {
-            "vector": self.to_vector(),
+            "vector":           self.to_vector(),
             "sigmoid_strength": self.k,
         }
 
@@ -282,7 +282,7 @@ class CubicParam(Parametrization):
         opt_cont = optim.ScipyOptimizer(
             method='L-BFGS-B', options={
                 'maxiter': 200,
-                'maxcor': 10
+                'maxcor':  10
             })
         iter_num = 0
 
@@ -347,7 +347,7 @@ class HermiteParam(Parametrization):
             coarse_y,
             deriv_scaling=np.array([
                 1, scale * np.diff(fine_x).mean(),
-                scale**2 * np.diff(fine_x).mean()**2
+                   scale ** 2 * np.diff(fine_x).mean() ** 2
             ]))
 
         # correct the initial value
@@ -359,12 +359,12 @@ class HermiteParam(Parametrization):
             self.vector = self.reverse_geometry_matrix @ initial_value
         elif len(initial_value) == self.derivative_matrix.shape[1]:
             self.vector = self.reverse_geometry_matrix @ \
-                self.derivative_matrix @ initial_value
-        #TODO vcruysse: account for the following cases
-        #elif len(initial_value) == symmetry_matrix.shape[1]*4:
-        #elif len(initial_value) == symmetry_matrix.shape[1]:
-        #elif len(initial_value) == periodic_matrix_n.shape[0]*4:
-        #elif len(initial_value) == periodic_matrix_n.shape[0]:
+                          self.derivative_matrix @ initial_value
+        # TODO vcruysse: account for the following cases
+        # elif len(initial_value) == symmetry_matrix.shape[1]*4:
+        # elif len(initial_value) == symmetry_matrix.shape[1]:
+        # elif len(initial_value) == periodic_matrix_n.shape[0]*4:
+        # elif len(initial_value) == periodic_matrix_n.shape[0]:
         else:
             raise ValueError('Invalid initial value')
 
@@ -378,7 +378,7 @@ class HermiteParam(Parametrization):
             derivatives=True,
             deriv_scaling=np.array([
                 1, scale * np.diff(fine_x).mean(),
-                scale**2 * np.diff(fine_x).mean()**2
+                   scale ** 2 * np.diff(fine_x).mean() ** 2
             ]))
         self.vec2f = phi2f @ self.geometry_matrix
 
@@ -398,7 +398,7 @@ class HermiteParam(Parametrization):
         z_cubic = self.vec2f @ self.vector
         return sparse.diags(2 * self.k * np.exp(-self.k * (2 * z_cubic - 1)) /
                             (1 + np.exp(-self.k *
-                                        (2 * z_cubic - 1)))**2) @ self.vec2f
+                                        (2 * z_cubic - 1))) ** 2) @ self.vec2f
 
     def set_k(self, k):
         self.k = k
@@ -416,17 +416,17 @@ class HermiteParam(Parametrization):
             self.vector = vector
         elif len(vector) == self.geometry_matrix.shape[0]:
             self.vector = self.reverse_geometry_matrix @ vector
-        #TODO vcruysse: account for the following cases
-        #elif len(initial_value) == symmetry_matrix.shape[1]*4:
-        #elif len(initial_value) == symmetry_matrix.shape[1]:
-        #elif len(initial_value) == periodic_matrix_n.shape[0]*4:
-        #elif len(initial_value) == periodic_matrix_n.shape[0]:
+        # TODO vcruysse: account for the following cases
+        # elif len(initial_value) == symmetry_matrix.shape[1]*4:
+        # elif len(initial_value) == symmetry_matrix.shape[1]:
+        # elif len(initial_value) == periodic_matrix_n.shape[0]*4:
+        # elif len(initial_value) == periodic_matrix_n.shape[0]:
         else:
             raise ValueError('Invalid initial value')
 
     def serialize(self) -> Dict:
         return {
-            "vector": self.to_vector(),
+            "vector":           self.to_vector(),
             "sigmoid_strength": self.k,
         }
 
@@ -447,7 +447,7 @@ class HermiteParam(Parametrization):
         opt_cont = optim.ScipyOptimizer(
             method='L-BFGS-B', options={
                 'maxiter': 200,
-                'maxcor': 10
+                'maxcor':  10
             })
         iter_num = 0
 

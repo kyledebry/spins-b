@@ -203,7 +203,7 @@ def setup_logging(save_folder: str) -> None:
     # Add handler to root logger.
     logging.getLogger("").addHandler(log_file_handler)
 
-    logging.getLogger("").setLevel(logging.INFO)
+    logging.getLogger("").setLevel(logging.DEBUG)
     # Disable requests logging because it is very verbose.
     logging.getLogger("requests").setLevel(logging.ERROR)
 
