@@ -403,7 +403,7 @@ class Epsilon(problem.OptimizationFunction):
     """Represents the permittivity distribution.
 
     This is a particular instantiation of the permittivity distribution
-    described by `SimulationSapce`.
+    described by `SimulationSpace`.
     """
 
     def __init__(
@@ -503,13 +503,13 @@ class WaveguideModeOverlap:
             power=self._params.power)
 
 
-@optplan.register_node(optplan.OverlapIntensity)
-class OverlapIntensity:
+@optplan.register_node(optplan.KerrOverlap)
+class KerrOverlap:
 
     def __init__(self,
                  params: optplan.KerrOverlap,
                  work: workspace.Workspace = None) -> None:
-        """Creates a new |E|^2 intensity overlap.
+        """Creates a new Kerr overlap.
 
         Args:
             params: Kerr intensity optimization region parameters.
@@ -520,18 +520,17 @@ class OverlapIntensity:
     def __call__(self, simspace: SimulationSpace, wlen: float,
                  **kwargs) -> fdfd_tools.VecField:
         space_inst = simspace(wlen)
-        return fdfd_solvers.waveguide_mode.build_overlap(
-            omega=2 * np.pi / wlen,
-            dxes=simspace.dxes,
-            eps=space_inst.eps_bg.grids,
-            mu=None,
-            mode_num=self._params.mode_num,
-            waveguide_slice=grid_utils.create_region_slices(
-                simspace.edge_coords, self._params.center,
-                self._params.extents),
-            axis=gridlock.axisvec2axis(self._params.normal),
-            polarity=gridlock.axisvec2polarity(self._params.normal),
-            power=self._params.power)
+        region_slice = grid_utils.create_region_slices(
+            simspace.edge_coords, self._params.center,
+            self._params.extents)[2]
+        eps = space_inst.eps_bg.grids
+        eps_min = eps.min()
+        eps_max = eps.max()
+        eps_norm = (eps - eps_min) / (eps_max - eps_min)
+
+        overlap = eps_norm[region_slice]
+
+        return overlap * self._params.power
 
 
 # TODO(logansu): This function appears just to be an inner product.
@@ -606,7 +605,7 @@ class OverlapIntensityFunction(problem.OptimizationFunction):
         self._input = input_function
         self.overlap_vector = overlap
         # Calculate the intensity of the fields
-        self.overlap_intensity_vector = np.dot(self.overlap_vector, self.overlap_vector)
+        self.overlap_intensity_vector = np.multiply(self.overlap_vector, self.overlap_vector)
 
     def eval(self, input_vals: List[np.ndarray]) -> np.ndarray:
         """Returns the output of the function.
@@ -641,7 +640,9 @@ def create_overlap_intensity_function(params: optplan.ProblemGraphNode,
                                       work: workspace.Workspace):
     simspace = work.get_object(params.simulation.simulation_space)
     wlen = params.simulation.wavelength
-    overlap = fdfd_tools.vec(work.get_object(params.overlap)(simspace, wlen))
+    overlap_callable = work.get_object(params.overlap)
+    overlap = overlap_callable(simspace, wlen)
+    overlap = fdfd_tools.vec(overlap)
     return OverlapIntensityFunction(
         input_function=work.get_object(params.simulation), overlap=overlap)
 
