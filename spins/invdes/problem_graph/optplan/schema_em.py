@@ -245,6 +245,24 @@ class WaveguideModeOverlap(optplan.EmOverlap):
 
 
 @optplan.register_node_type()
+class KerrOverlap(optplan.EmOverlap):
+    """Represents the area in which we want to have a strong Kerr nonlinearity
+
+    Effectively just the epsilon value in the desired region.
+
+    Attributes:
+        center: Optimization area center
+        extents: Width and height of the optimization region
+        power: The transmission power of the mode.
+    """
+
+    type = schema_utils.polymorphic_model_type("overlap.kerr")
+    center = optplan.vec3d()
+    extents = optplan.vec3d()
+    power = types.FloatType()
+
+
+@optplan.register_node_type()
 class PlaneWaveSource(optplan.EmSource):
     """Represents a plane wave source.
 
@@ -384,6 +402,20 @@ class Overlap(optplan.Function):
         overlap: Overlap type to use.
     """
     type = schema_utils.polymorphic_model_type("function.overlap")
+    simulation = optplan.ReferenceType(optplan.Function)
+    overlap = optplan.ReferenceType(optplan.EmOverlap)
+
+
+@optplan.register_node_type()
+class OverlapIntensity(optplan.Function):
+    """Defines an overlap integral of the intensity of the field |E|^2.
+
+    Attributes:
+        type: Must be "function.overlap_intensity".
+        simulation: Simulation from which electric fields are obtained.
+        overlap: Overlap type to use.
+    """
+    type = schema_utils.polymorphic_model_type("function.overlap_intensity")
     simulation = optplan.ReferenceType(optplan.Function)
     overlap = optplan.ReferenceType(optplan.EmOverlap)
 

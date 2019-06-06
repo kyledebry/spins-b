@@ -503,6 +503,37 @@ class WaveguideModeOverlap:
             power=self._params.power)
 
 
+@optplan.register_node(optplan.OverlapIntensity)
+class OverlapIntensity:
+
+    def __init__(self,
+                 params: optplan.KerrOverlap,
+                 work: workspace.Workspace = None) -> None:
+        """Creates a new |E|^2 intensity overlap.
+
+        Args:
+            params: Kerr intensity optimization region parameters.
+            work: Unused.
+        """
+        self._params = params
+
+    def __call__(self, simspace: SimulationSpace, wlen: float,
+                 **kwargs) -> fdfd_tools.VecField:
+        space_inst = simspace(wlen)
+        return fdfd_solvers.waveguide_mode.build_overlap(
+            omega=2 * np.pi / wlen,
+            dxes=simspace.dxes,
+            eps=space_inst.eps_bg.grids,
+            mu=None,
+            mode_num=self._params.mode_num,
+            waveguide_slice=grid_utils.create_region_slices(
+                simspace.edge_coords, self._params.center,
+                self._params.extents),
+            axis=gridlock.axisvec2axis(self._params.normal),
+            polarity=gridlock.axisvec2polarity(self._params.normal),
+            power=self._params.power)
+
+
 # TODO(logansu): This function appears just to be an inner product.
 # Why is this a separate function right now?
 class OverlapFunction(problem.OptimizationFunction):
@@ -556,6 +587,62 @@ def create_overlap_function(params: optplan.ProblemGraphNode,
     wlen = params.simulation.wavelength
     overlap = fdfd_tools.vec(work.get_object(params.overlap)(simspace, wlen))
     return OverlapFunction(
+        input_function=work.get_object(params.simulation), overlap=overlap)
+
+
+class OverlapIntensityFunction(problem.OptimizationFunction):
+    """Represents an optimization function for overlap of field intensity |E|^2."""
+
+    def __init__(self, input_function: problem.OptimizationFunction,
+                 overlap: np.ndarray):
+        """Constructs the objective C*x.
+
+        Args:
+            input_function: Input objectives (typically a simulation).
+            overlap: Vector to overlap with its intensity.
+        """
+        super().__init__(input_function)
+
+        self._input = input_function
+        self.overlap_vector = overlap
+        # Calculate the intensity of the fields
+        self.overlap_intensity_vector = np.dot(self.overlap_vector, self.overlap_vector)
+
+    def eval(self, input_vals: List[np.ndarray]) -> np.ndarray:
+        """Returns the output of the function.
+
+        Args:
+            input_vals: List of the input values.
+
+        Returns:
+            Vector product of overlap and the input.
+        """
+        return self.overlap_vector @ input_vals[0]
+
+    def grad(self, input_vals: List[np.ndarray],
+             grad_val: np.ndarray) -> List[np.ndarray]:
+        """Returns the gradient of the function.
+
+        Args:
+            input_vals: List of the input values.
+            grad_val: Gradient of the output.
+
+        Returns:
+            gradient.
+        """
+        return [grad_val * self.overlap_intensity_vector]
+
+    def __str__(self):
+        return "OverlapIntensity({})".format(self._input)
+
+
+@optplan.register_node(optplan.OverlapIntensity)
+def create_overlap_intensity_function(params: optplan.ProblemGraphNode,
+                                      work: workspace.Workspace):
+    simspace = work.get_object(params.simulation.simulation_space)
+    wlen = params.simulation.wavelength
+    overlap = fdfd_tools.vec(work.get_object(params.overlap)(simspace, wlen))
+    return OverlapIntensityFunction(
         input_function=work.get_object(params.simulation), overlap=overlap)
 
 
