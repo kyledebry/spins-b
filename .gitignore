@@ -36,3 +36,4 @@ _build/**
 .log20*/
 *.log
 .coverage*
+*.DS_Store

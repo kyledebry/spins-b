@@ -1,8 +1,4 @@
 monitor_list:
-- monitor_names: [field1300]
-  monitor_type: planar
-  vector_operation: magnitude
-
 - monitor_names: [field1550]
   monitor_type: planar
   vector_operation: magnitude
@@ -12,11 +8,11 @@ monitor_list:
   scalar_operation: magnitude
   vector_operation: z
 
-- monitor_names: [power1300]
+- monitor_names: [powerKerr]
   monitor_type: scalar
   scalar_operation: magnitude_squared
 
-- monitor_names: [power1550]
+- monitor_names: [powerOut]
   monitor_type: scalar
   scalar_operation: magnitude_squared
 

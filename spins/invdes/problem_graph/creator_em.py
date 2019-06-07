@@ -522,15 +522,24 @@ class KerrOverlap:
         space_inst = simspace(wlen)
         region_slice = grid_utils.create_region_slices(
             simspace.edge_coords, self._params.center,
-            self._params.extents)[2]
+            self._params.extents)
         eps = space_inst.eps_bg.grids
         eps_min = eps.min()
         eps_max = eps.max()
-        eps_norm = (eps - eps_min) / (eps_max - eps_min)
+        eps_norm = (eps / eps_max) ** 2
 
-        overlap = eps_norm[region_slice]
+        overlap = [None] * 3
+        for i in range(3):
+            overlap[i] = np.zeros_like(eps_norm[0], dtype=complex)
+            overlap_i = overlap[i]
+            eps_i = eps_norm[i]
+            overlap_i_slice = overlap_i[region_slice]
+            eps_i_slice = eps_i[region_slice]
+            overlap_i[region_slice] = eps_i_slice
 
-        return overlap * self._params.power
+            overlap[i] = overlap_i
+
+        return np.multiply(overlap, self._params.power)
 
 
 # TODO(logansu): This function appears just to be an inner product.
