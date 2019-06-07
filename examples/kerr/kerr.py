@@ -19,7 +19,7 @@ Note that to run the 3D optimization, the 3D solver must be setup and running
 already.
 
 To process the optimization data, see the IPython notebook contained in this
-folder, or the monitor_plot.py file.
+folder, or the monitor_plot_kerr.py file.
 """
 from typing import List, Tuple
 
@@ -156,12 +156,12 @@ def create_objective(sim_space: optplan.SimulationSpace
         power=1.0,
     )
     # Create modal overlaps at the two output waveguides.
-    overlap_kerr = optplan.KerrOverlap(
+    """overlap_kerr = optplan.KerrOverlap(
         center=[0, 0, 0],
         extents=[GRID_SPACING, 1500, 600],
         power=1.0,
-    )
-    overlap_out = optplan.WaveguideModeOverlap(
+    )"""
+    overlap_1550 = optplan.WaveguideModeOverlap(
         center=[1730, 0, 0],
         extents=[GRID_SPACING, 1500, 600],
         mode_num=0,
@@ -203,22 +203,22 @@ def create_objective(sim_space: optplan.SimulationSpace
             normal=[0, 0, 1],
             center=[0, 0, 0]))
 
-    overlap_kerr = optplan.OverlapIntensity(simulation=sim, overlap=overlap_kerr)
-    power_kerr = optplan.abs(overlap_kerr)**2
-    overlap_out = optplan.Overlap(simulation=sim, overlap=overlap_out)
-    power_out = optplan.abs(overlap_out)**2
+    """overlap_kerr = optplan.OverlapIntensity(simulation=sim, overlap=overlap_kerr)
+    power_kerr = optplan.abs(overlap_kerr)**2"""
+    overlap_1550 = optplan.Overlap(simulation=sim, overlap=overlap_1550)
+    power_1550 = optplan.abs(overlap_1550)**2
 
-    power_objs.append(power_kerr)
-    power_objs.append(power_out)
+    #power_objs.append(power_kerr)
+    power_objs.append(power_1550)
 
-    monitor_list.append(optplan.SimpleMonitor(name="powerKerr", function=power_kerr))
-    monitor_list.append(optplan.SimpleMonitor(name="powerOut", function=power_out))
+    #monitor_list.append(optplan.SimpleMonitor(name="powerKerr", function=power_kerr))
+    monitor_list.append(optplan.SimpleMonitor(name="powerOut", function=power_1550))
 
     # Spins minimizes the objective function, so to make `power` maximized,
     # we minimize `1 - power`.
     obj = 0
     for power in power_objs:
-        obj += (1 - power)**2
+        obj += -power
 
     monitor_list.append(optplan.SimpleMonitor(name="objective", function=obj))
 
@@ -230,7 +230,7 @@ def create_transformations(
         monitors: List[optplan.Monitor],
         sim_space: optplan.SimulationSpaceBase,
         cont_iters: int,
-        num_stages: int = 3,
+        num_stages: int = 2,
         min_feature: float = 100,
 ) -> List[optplan.Transformation]:
     """Creates a list of transformations for the device optimization.

@@ -19,7 +19,7 @@ spec_folder = os.getcwd()
 df = log_tools.create_log_data_frame(log_tools.load_all_logs(save_folder))
 
 # `monitor_spec_filename` is the full path to the monitor spec yml file.
-monitor_spec_filename = os.path.join(spec_folder, "monitor_spec.yml")
+monitor_spec_filename = os.path.join(spec_folder, "monitor_spec_kerr.yml")
 
 # `monitor_descriptions` now contains the information from the monitor_spec.yml file. It follows the format of
 # the schema found in `log_tools.monitor_spec`.

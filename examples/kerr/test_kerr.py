@@ -22,7 +22,7 @@ def test_kerr(tmpdir):
     sim_space = kerr.create_sim_space("sim_fg.gds", "sim_bg.gds")
     obj, monitors = kerr.create_objective(sim_space)
     trans_list = kerr.create_transformations(
-        obj, monitors, sim_space, cont_iters=8, min_feature=100)
+        obj, monitors, sim_space, cont_iters=10, min_feature=100)
     plan = optplan.OptimizationPlan(transformations=trans_list)
     problem_graph.run_plan(plan, folder)
 

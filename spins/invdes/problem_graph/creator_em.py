@@ -533,9 +533,8 @@ class KerrOverlap:
             overlap[i] = np.zeros_like(eps_norm[0], dtype=complex)
             overlap_i = overlap[i]
             eps_i = eps_norm[i]
-            overlap_i_slice = overlap_i[region_slice]
-            eps_i_slice = eps_i[region_slice]
-            overlap_i[region_slice] = eps_i_slice
+            eps_i_slice = eps_i[tuple(region_slice)]
+            overlap_i[tuple(region_slice)] = eps_i_slice
 
             overlap[i] = overlap_i
 
@@ -627,7 +626,7 @@ class OverlapIntensityFunction(problem.OptimizationFunction):
         Returns:
             Vector product of overlap and the input.
         """
-        return self.overlap_vector @ input_vals[0]
+        return np.dot(self.overlap_vector, np.multiply(input_vals[0], input_vals[0]))
 
     def grad(self, input_vals: List[np.ndarray],
              grad_val: np.ndarray) -> List[np.ndarray]:
@@ -640,7 +639,7 @@ class OverlapIntensityFunction(problem.OptimizationFunction):
         Returns:
             gradient.
         """
-        return [grad_val * self.overlap_intensity_vector]
+        return [grad_val * self.overlap_vector]
 
     def __str__(self):
         return "OverlapIntensity({})".format(self._input)
