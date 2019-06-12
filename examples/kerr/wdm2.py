@@ -151,14 +151,14 @@ def create_objective(sim_space: optplan.SimulationSpace
     )
     # Create modal overlaps at the two output waveguides.
     overlap_1550 = optplan.WaveguideModeOverlap(
-        center=[1730, -500, 0],
+        center=[1730, 0, 0],
         extents=[GRID_SPACING, 1500, 600],
         mode_num=0,
         normal=[1, 0, 0],
         power=1.0,
     )
     overlap_1300 = optplan.WaveguideModeOverlap(
-        center=[1730, 500, 0],
+        center=[1730, 0, 0],
         extents=[GRID_SPACING, 1500, 600],
         mode_num=0,
         normal=[1, 0, 0],
@@ -224,7 +224,7 @@ def create_transformations(
         monitors: List[optplan.Monitor],
         sim_space: optplan.SimulationSpaceBase,
         cont_iters: int,
-        num_stages: int = 2,
+        num_stages: int = 3,
         min_feature: float = 100,
 ) -> List[optplan.Transformation]:
     """Creates a list of transformations for the device optimization.

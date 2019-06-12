@@ -22,7 +22,7 @@ def test_wdm2(tmpdir):
     sim_space = wdm2.create_sim_space("sim_fg.gds", "sim_bg.gds")
     obj, monitors = wdm2.create_objective(sim_space)
     trans_list = wdm2.create_transformations(
-        obj, monitors, sim_space, cont_iters=8, min_feature=100)
+        obj, monitors, sim_space, cont_iters=6, min_feature=100)
     plan = optplan.OptimizationPlan(transformations=trans_list)
     problem_graph.run_plan(plan, folder)
 

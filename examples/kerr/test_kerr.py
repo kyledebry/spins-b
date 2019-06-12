@@ -1,7 +1,7 @@
 import os
 import shutil
 
-import kerr
+import kerr, monitor_plot_kerr
 from spins.invdes import problem_graph
 from spins.invdes.problem_graph import optplan
 
@@ -17,14 +17,15 @@ def _copyfiles(src_folder, dest_folder, filenames):
 
 def test_kerr(tmpdir):
     folder = os.path.join(tmpdir, 'kerr_test_results')
-    _copyfiles(CUR_DIR, folder, ["sim_fg.gds", "sim_bg.gds"])
+    _copyfiles(CUR_DIR, folder, ["sim_fg_kerr.gds", "sim_bg_kerr.gds"])
 
-    sim_space = kerr.create_sim_space("sim_fg.gds", "sim_bg.gds")
+    sim_space = kerr.create_sim_space("sim_fg_kerr.gds", "sim_bg_kerr.gds")
     obj, monitors = kerr.create_objective(sim_space)
     trans_list = kerr.create_transformations(
-        obj, monitors, sim_space, cont_iters=10, min_feature=100)
+        obj, monitors, sim_space, cont_iters=50, min_feature=50)
     plan = optplan.OptimizationPlan(transformations=trans_list)
     problem_graph.run_plan(plan, folder)
 
 
 test_kerr(CUR_DIR)
+monitor_plot_kerr.plot()

@@ -224,7 +224,7 @@ def create_transformations(
         monitors: List[optplan.Monitor],
         sim_space: optplan.SimulationSpaceBase,
         cont_iters: int,
-        num_stages: int = 2,
+        num_stages: int = 3,
         min_feature: float = 100,
 ) -> List[optplan.Transformation]:
     """Creates a list of transformations for the device optimization.
@@ -235,11 +235,11 @@ def create_transformations(
     controlling a parameter of a sigmoid function).
 
     Args:
-        obj: The objective function to minimize.
+        opt: The objective function to minimize.
         monitors: List of monitors to keep track of.
         sim_space: Simulation space ot use.
         cont_iters: Number of iterations to run in continuous optimization
-            total across all stages.
+            total acorss all stages.
         num_stages: Number of continuous stages to run. The more stages that
             are run, the more discrete the structure will become.
         min_feature: Minimum feature size in nanometers.

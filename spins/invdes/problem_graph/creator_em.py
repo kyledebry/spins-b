@@ -403,7 +403,7 @@ class Epsilon(problem.OptimizationFunction):
     """Represents the permittivity distribution.
 
     This is a particular instantiation of the permittivity distribution
-    described by `SimulationSpace`.
+    described by `SimulationSapce`.
     """
 
     def __init__(
@@ -592,10 +592,8 @@ def create_overlap_function(params: optplan.ProblemGraphNode,
                             work: workspace.Workspace):
     simspace = work.get_object(params.simulation.simulation_space)
     wlen = params.simulation.wavelength
-    overlap_callable = work.get_object(params.overlap)
-    overlap = overlap_callable(simspace, wlen)
-    overlap = fdfd_tools.vec(overlap)
-    return OverlapIntensityFunction(
+    overlap = fdfd_tools.vec(work.get_object(params.overlap)(simspace, wlen))
+    return OverlapFunction(
         input_function=work.get_object(params.simulation), overlap=overlap)
 
 
