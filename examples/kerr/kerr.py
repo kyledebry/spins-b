@@ -29,7 +29,7 @@ from spins.invdes import problem_graph
 from spins.invdes.problem_graph import optplan
 
 # Yee cell grid spacing in nanometers.
-GRID_SPACING = 20
+GRID_SPACING = 40
 # If `True`, perform the simulation in 2D. Else in 3D.
 SIM_2D = True
 # Silicon refractive index to use for 2D simulations. This should be the
@@ -156,12 +156,12 @@ def create_objective(sim_space: optplan.SimulationSpace
         power=1.0,
     )
     # Create modal overlaps at the two output waveguides.
-    overlap_kerr = optplan.KerrOverlap(
-        center=[0, 0, 0],
-        extents=[1500, 1500, 600],
-        power=1.0,
-    )
-    overlap_Out = optplan.WaveguideModeOverlap(
+    # overlap_kerr = optplan.KerrOverlap(
+    #     center=[0, 0, 0],
+    #     extents=[1500, 1500, 600],
+    #     power=1.0,
+    # )
+    overlap_out = optplan.WaveguideModeOverlap(
         center=[1730, 0, 0],
         extents=[GRID_SPACING, 1500, 600],
         mode_num=0,
@@ -203,20 +203,20 @@ def create_objective(sim_space: optplan.SimulationSpace
             normal=[0, 0, 1],
             center=[0, 0, 0]))
 
-    overlap_kerr = optplan.OverlapIntensity(simulation=sim, overlap=overlap_kerr)
-    power_kerr = optplan.abs(overlap_kerr)**2
-    overlap_Out = optplan.Overlap(simulation=sim, overlap=overlap_Out)
-    power_Out = optplan.abs(overlap_Out)**2
+    # overlap_kerr = optplan.OverlapIntensity(simulation=sim, overlap=overlap_kerr)
+    # power_kerr = optplan.abs(overlap_kerr)**2
+    overlap_out = optplan.Overlap(simulation=sim, overlap=overlap_out)
+    power_out = optplan.abs(overlap_out)**2
 
-    power_objs.append(power_kerr)
-    power_objs.append(power_Out)
+    # power_objs.append(power_kerr)
+    power_objs.append(power_out)
 
-    monitor_list.append(optplan.SimpleMonitor(name="powerKerr", function=power_kerr))
-    monitor_list.append(optplan.SimpleMonitor(name="powerOut", function=power_Out))
+    # monitor_list.append(optplan.SimpleMonitor(name="powerKerr", function=power_kerr))
+    monitor_list.append(optplan.SimpleMonitor(name="powerOut", function=power_out))
 
     # Spins minimizes the objective function, so to make `power` maximized,
     # we minimize `1 - power`.
-    obj = (1 - power_Out) ** 2
+    obj = (1 - power_out) ** 2
     # for power in power_objs:
     #     obj += (1 - power) ** 2
 
