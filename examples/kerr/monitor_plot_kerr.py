@@ -37,4 +37,3 @@ def plot():
     log_tools.plot_monitor_data(df, monitor_descriptions, None)
 
 
-plot()

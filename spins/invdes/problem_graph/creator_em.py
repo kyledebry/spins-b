@@ -648,12 +648,9 @@ def create_overlap_intensity_function(params: optplan.ProblemGraphNode,
                                       work: workspace.Workspace):
     simspace = work.get_object(params.simulation.simulation_space)
     wlen = params.simulation.wavelength
-    overlap_callable = work.get_object(params.overlap)
-    overlap = overlap_callable(simspace, wlen)
-    overlap = fdfd_tools.vec(overlap)
+    overlap = fdfd_tools.vec(work.get_object(params.overlap)(simspace, wlen))
     return OverlapIntensityFunction(
         input_function=work.get_object(params.simulation), overlap=overlap)
-
 
 # TODO(logansu): Merge this into `AbsoluteValue`.
 class DiffEpsilon(problem.OptimizationFunction):
