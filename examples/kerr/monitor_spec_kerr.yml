@@ -1,7 +1,8 @@
 monitor_list:
 - monitor_names: [field1550]
   monitor_type: planar
-  vector_operation: magnitude
+  scalar_operation: real
+  vector_operation: x
 
 - monitor_names: [epsilon]
   monitor_type: planar

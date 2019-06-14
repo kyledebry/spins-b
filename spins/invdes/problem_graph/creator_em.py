@@ -526,7 +526,7 @@ class KerrOverlap:
         eps = space_inst.eps_bg.grids
         eps_min = eps.min()
         eps_max = eps.max()
-        eps_norm = (eps / eps_max) ** 2
+        eps_norm = (eps - eps_min) / (eps_max - eps_min) + 1
 
         overlap = [None] * 3
         for i in range(3):
@@ -568,6 +568,7 @@ class OverlapFunction(problem.OptimizationFunction):
         Returns:
             Vector product of overlap and the input.
         """
+
         return self.overlap_vector @ input_vals[0]
 
     def grad(self, input_vals: List[np.ndarray],
@@ -624,7 +625,7 @@ class OverlapIntensityFunction(problem.OptimizationFunction):
         Returns:
             Vector product of overlap and the input.
         """
-        return np.dot(self.overlap_vector, np.multiply(input_vals[0], input_vals[0]))
+        return np.dot(self.overlap_vector, input_vals[0]) / len(self.overlap_vector)
 
     def grad(self, input_vals: List[np.ndarray],
              grad_val: np.ndarray) -> List[np.ndarray]:
@@ -651,6 +652,51 @@ def create_overlap_intensity_function(params: optplan.ProblemGraphNode,
     overlap = fdfd_tools.vec(work.get_object(params.overlap)(simspace, wlen))
     return OverlapIntensityFunction(
         input_function=work.get_object(params.simulation), overlap=overlap)
+
+
+class PhaseAbsoluteFunction(problem.OptimizationFunction):
+    """Represents an optimization function for the absolute phase of the field."""
+
+    def __init__(self, input_function: problem.OptimizationFunction,
+                 region: slice, phase: float):
+        """Constructs the objective C*x.
+
+        Args:
+            input_function: Input objectives (typically a simulation).
+            region: area in which to optimize the phase.
+        """
+        super().__init__(input_function)
+
+        self._input = input_function
+        self.region = region
+        self.phase = phase
+
+    def eval(self, input_vals: List[np.ndarray]) -> np.ndarray:
+        """Returns the output of the function.
+
+        Args:
+            input_vals: List of the input values.
+
+        Returns:
+            Vector product of overlap and the input.
+        """
+        return np.dot(self.overlap_vector, input_vals[0]) / len(self.overlap_vector)
+
+    def grad(self, input_vals: List[np.ndarray],
+             grad_val: np.ndarray) -> List[np.ndarray]:
+        """Returns the gradient of the function.
+
+        Args:
+            input_vals: List of the input values.
+            grad_val: Gradient of the output.
+
+        Returns:
+            gradient.
+        """
+        return [grad_val * self.overlap_vector]
+
+    def __str__(self):
+        return "OverlapIntensity({})".format(self._input)
 
 # TODO(logansu): Merge this into `AbsoluteValue`.
 class DiffEpsilon(problem.OptimizationFunction):

@@ -664,6 +664,7 @@ class AbsoluteValue(OptimizationFunction):
     def eval(self, input_vals: List[np.ndarray]) -> np.ndarray:
         return np.abs(input_vals[0])
 
+    # Note this function is not differentiable
     def grad(self, input_vals: List[np.ndarray],
              grad_val: np.ndarray) -> List[np.ndarray]:
         grad = np.conj(input_vals[0]) / abs(input_vals[0])
