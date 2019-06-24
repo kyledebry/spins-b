@@ -613,8 +613,6 @@ class OverlapIntensityFunction(problem.OptimizationFunction):
 
         self._input = input_function
         self.overlap_vector = overlap
-        # Calculate the intensity of the fields
-        self.overlap_intensity_vector = np.multiply(self.overlap_vector, self.overlap_vector)
 
     def eval(self, input_vals: List[np.ndarray]) -> np.ndarray:
         """Returns the output of the function.
@@ -680,7 +678,7 @@ class PhaseAbsoluteFunction(problem.OptimizationFunction):
         Returns:
             Vector product of overlap and the input.
         """
-        return np.dot(self.overlap_vector, input_vals[0]) / len(self.overlap_vector)
+        return np.angle(input_vals)
 
     def grad(self, input_vals: List[np.ndarray],
              grad_val: np.ndarray) -> List[np.ndarray]:
@@ -693,7 +691,16 @@ class PhaseAbsoluteFunction(problem.OptimizationFunction):
         Returns:
             gradient.
         """
-        return [grad_val * self.overlap_vector]
+
+        re = np.real(input_vals)
+        im = np.imag(input_vals)
+
+        grad_re = - im / (re**2 + im**2)
+        grad_im = re / (re**2 + im**2)
+
+        grad = grad_re + 1j*grad_im
+
+        return [grad_val * grad]
 
     def __str__(self):
         return "OverlapIntensity({})".format(self._input)
