@@ -149,6 +149,15 @@ class EmOverlap(ProblemGraphNode):
     """
 
 
+class EmRegion(ProblemGraphNode):
+    """Represents a region of the simulation field.
+
+    A region object is a callable that accepts as input a
+    `SimulationSpaceBase` object and coordinates and produces as output
+    a slice corresponding to the region.
+    """
+
+
 class EmSource(ProblemGraphNode):
     """Represents a source.
 

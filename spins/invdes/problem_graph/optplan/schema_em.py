@@ -263,6 +263,24 @@ class KerrOverlap(optplan.EmOverlap):
 
 
 @optplan.register_node_type()
+class Region(optplan.EmRegion):
+    """Represents the area in which we want to consider the objective function
+
+    Effectively just the epsilon value in the desired region.
+
+    Attributes:
+        center: Optimization area center
+        extents: Width and height of the optimization region
+        power: Multiplier for the effects of the objective function (default 1).
+    """
+
+    type = schema_utils.polymorphic_model_type("overlap.region")
+    center = optplan.vec3d()
+    extents = optplan.vec3d()
+    power = types.FloatType()
+
+
+@optplan.register_node_type()
 class PlaneWaveSource(optplan.EmSource):
     """Represents a plane wave source.
 
@@ -418,6 +436,19 @@ class OverlapIntensity(optplan.Function):
     type = schema_utils.polymorphic_model_type("function.overlap_intensity")
     simulation = optplan.ReferenceType(optplan.Function)
     overlap = optplan.ReferenceType(optplan.EmOverlap)
+
+
+@optplan.register_node_type()
+class PhaseAbsolute(optplan.Function):
+    """Defines a function that returns the absolute phase of the field.
+
+    Attributes:
+        type: Must be "function.phase_absolute".
+        simulation: Simulation from which electric fields are obtained.
+    """
+    type = schema_utils.polymorphic_model_type("function.phase_absolute")
+    simulation = optplan.ReferenceType(optplan.Function)
+    region = optplan.ReferenceType(optplan.EmRegion)
 
 
 @optplan.register_node_type()

@@ -36,7 +36,7 @@ def register_node_type(
 
     Args:
         node_meta_type: Metatype of the node model.
-        context: Context stack to register model.
+        context_stack: Context stack to register model.
 
     Returns:
         A decorator for a `models.Model` class.

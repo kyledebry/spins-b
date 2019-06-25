@@ -541,6 +541,40 @@ class KerrOverlap:
         return np.multiply(overlap, self._params.power)
 
 
+@optplan.register_node(optplan.Region)
+class Region:
+    def __init__(self,
+                 params: optplan.Region,
+                 work: workspace.Workspace = None) -> None:
+        """Creates a new phase objective.
+
+        Args:
+            params: phase optimization region parameters.
+            work: Unused.
+        """
+        self._params = params
+
+    def __call__(self, simspace: SimulationSpace, wlen: float,
+                 **kwargs) -> fdfd_tools.VecField:
+        space_inst = simspace(wlen)
+        region_slice = grid_utils.create_region_slices(
+            simspace.edge_coords, self._params.center,
+            self._params.extents)
+        eps = space_inst.eps_bg.grids
+
+        region = [None] * 3
+        for i in range(3):
+            region[i] = np.zeros_like(eps[0], dtype=complex)
+            region_i = region[i]
+            ones_i = np.ones_like(eps, dtype=complex)[i]
+            ones_i_slice = ones_i[tuple(region_slice)]
+            region_i[tuple(region_slice)] = ones_i_slice
+
+            region[i] = region_i
+
+        return np.multiply(region, self._params.power)
+
+
 # TODO(logansu): This function appears just to be an inner product.
 # Why is this a separate function right now?
 class OverlapFunction(problem.OptimizationFunction):
@@ -652,11 +686,21 @@ def create_overlap_intensity_function(params: optplan.ProblemGraphNode,
         input_function=work.get_object(params.simulation), overlap=overlap)
 
 
-class PhaseAbsoluteFunction(problem.OptimizationFunction):
+def _get_vector_components(field):
+    third = len(field) // 3
+
+    x = field[:third]
+    y = field[third:2*third]
+    z = field[2*third:]
+
+    return [x, y, z]
+
+
+class PhaseAverageFunction(problem.OptimizationFunction):
     """Represents an optimization function for the absolute phase of the field."""
 
     def __init__(self, input_function: problem.OptimizationFunction,
-                 region: slice, phase: float):
+                 region: np.array):
         """Constructs the objective C*x.
 
         Args:
@@ -667,7 +711,9 @@ class PhaseAbsoluteFunction(problem.OptimizationFunction):
 
         self._input = input_function
         self.region = region
-        self.phase = phase
+        self.center_phases = [0, 0, 0]
+        self.old_input = []
+        self.current_phase_avg = None
 
     def eval(self, input_vals: List[np.ndarray]) -> np.ndarray:
         """Returns the output of the function.
@@ -678,7 +724,54 @@ class PhaseAbsoluteFunction(problem.OptimizationFunction):
         Returns:
             Vector product of overlap and the input.
         """
-        return np.angle(input_vals)
+
+        # Check cache
+        if np.array_equal(self.old_input, input_vals):
+            return self.current_phase_avg
+        else:
+            self.old_input = input_vals
+
+        # Get the phase of each component of the field in the specified region
+        phase_vector = np.angle(input_vals[0])
+        phase_region = phase_vector * np.real(self.region)
+        phase_components = _get_vector_components(phase_region)
+
+        region_only_phase = [phase_components[i][np.nonzero(phase_components[i])] for i in range(3)]
+
+        # 'Unwrap' the phase so that it is no longer periodic in [-pi, pi) but continuous
+        # Unwrapping is done from the center cell outward in both directions
+        mid = len(region_only_phase[0]) // 2
+        for axis, old_center_phase in zip(region_only_phase, self.center_phases):
+            axis[mid:] = np.unwrap(axis[mid:])
+            axis[:mid + 1] = np.flip(np.unwrap(np.flip(axis[:mid + 1])))
+
+            # Correct for if the center cell crossed discontinuity at +/-pi by comparing to the previous
+            # iteration's value and adjusting all values accordingly
+            center_phase_diff = axis[mid] - old_center_phase
+            if center_phase_diff > np.pi:
+                axis -= np.pi
+            elif center_phase_diff < -np.pi:
+                axis += np.pi
+
+        # Update the center cell values to compare with on the next iteration
+        self.center_phases = [region_only_phase[i][mid] for i in range(3)]
+
+        # In taking the average, weight the values by the field magnitude to avoid large changes in
+        # phase due to small changes in the field for near-zero fields (similar to grad calculation)
+        magnitude_region = np.abs(input_vals[0])[np.nonzero(self.region)]
+        relative_magnitude = magnitude_region / np.average(magnitude_region)
+        relative_magnitude_components = _get_vector_components(relative_magnitude)
+        weight = [relative_magnitude_components[i] / len(magnitude_region) for i in range(3)]
+
+        weighted_phase = [region_only_phase[i] * weight[i] for i in range(3)]
+
+        # The weighted average is the sum of the weighted phases
+        phase_avg = np.sum(weighted_phase)
+
+        # Update cache
+        self.current_phase_avg = phase_avg
+
+        return phase_avg
 
     def grad(self, input_vals: List[np.ndarray],
              grad_val: np.ndarray) -> List[np.ndarray]:
@@ -686,24 +779,40 @@ class PhaseAbsoluteFunction(problem.OptimizationFunction):
 
         Args:
             input_vals: List of the input values.
-            grad_val: Gradient of the output.
+            grad_val: Gradient of the input to the phase function (for chain rule).
 
         Returns:
             gradient.
         """
 
-        re = np.real(input_vals)
-        im = np.imag(input_vals)
+        re = np.real(input_vals[0])
+        im = np.imag(input_vals[0])
 
         grad_re = - im / (re**2 + im**2)
         grad_im = re / (re**2 + im**2)
 
-        grad = grad_re + 1j*grad_im
+        grad_global = (grad_re + 1j*grad_im) * np.abs(input_vals[0])
+        region_sum = np.sum(self.region)
+
+        region_only_grad = grad_global[np.nonzero(self.region)]
+
+        grad = grad_global * self.region / region_sum
 
         return [grad_val * grad]
 
     def __str__(self):
-        return "OverlapIntensity({})".format(self._input)
+        return "PhaseAbsolute({})".format(self._input)
+
+
+@optplan.register_node(optplan.PhaseAbsolute)
+def create_phase_absolute_function(params: optplan.ProblemGraphNode,
+                                      work: workspace.Workspace):
+    simspace = work.get_object(params.simulation.simulation_space)
+    wlen = params.simulation.wavelength
+    region = fdfd_tools.vec(work.get_object(params.region)(simspace, wlen))
+    return PhaseAverageFunction(
+        input_function=work.get_object(params.simulation), region=region)
+
 
 # TODO(logansu): Merge this into `AbsoluteValue`.
 class DiffEpsilon(problem.OptimizationFunction):

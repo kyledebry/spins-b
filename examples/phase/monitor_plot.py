@@ -12,7 +12,7 @@ def plot():
     # Define filenames.
 
     # `save_folder` is the full path to the directory containing the Pickle (.pkl) log files from the optimization.
-    save_folder = os.path.join(os.getcwd(), 'wdm2_test_1')
+    save_folder = os.path.join(os.getcwd(), 'phase_test_results')
     spec_folder = os.getcwd()
 
     # Load the logged monitor data and monitor spec information.
@@ -35,3 +35,11 @@ def plot():
     # This command plots all the monitor data contained in the log files, saves it to the specified pdf file, and
     # displays to the screen.
     log_tools.plot_monitor_data(df, monitor_descriptions, None)
+
+
+def main():
+    plot()
+
+
+if __name__ == "__main__":
+    main()

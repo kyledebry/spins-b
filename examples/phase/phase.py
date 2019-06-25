@@ -29,7 +29,7 @@ from spins.invdes import problem_graph
 from spins.invdes.problem_graph import optplan
 
 # Yee cell grid spacing in nanometers.
-GRID_SPACING = 40
+GRID_SPACING = 20
 # If `True`, perform the simulation in 2D. Else in 3D.
 SIM_2D = True
 # Silicon refractive index to use for 2D simulations. This should be the
@@ -159,10 +159,10 @@ def create_objective(sim_space: optplan.SimulationSpace
     )
 
     # Create modal overlaps at the two output waveguides.
-    overlap_kerr = optplan.KerrOverlap(
-        center=[0, 0, 0],
-        extents=[500, 500, 600],
-        power=100,
+    phase_region = optplan.Region(
+        center=[1730, 0, 0],
+        extents=[GRID_SPACING, 1500, 6*GRID_SPACING],
+        power=1,
     )
 
     overlap_out = optplan.WaveguideModeOverlap(
@@ -170,7 +170,7 @@ def create_objective(sim_space: optplan.SimulationSpace
         extents=[GRID_SPACING, 1500, 600],
         mode_num=0,
         normal=[1, 0, 0],
-        power=0.1,
+        power=1,
     )
 
     power_objs = []
@@ -207,22 +207,22 @@ def create_objective(sim_space: optplan.SimulationSpace
             normal=[0, 0, 1],
             center=[0, 0, 0]))
 
-    overlap_kerr = optplan.OverlapIntensity(simulation=sim, overlap=overlap_kerr)
-    power_kerr = optplan.abs(overlap_kerr)**2
+    phase_avg = optplan.PhaseAbsolute(simulation=sim, region=phase_region)
+    phase_from_zero = optplan.abs(phase_avg)
     overlap_out = optplan.Overlap(simulation=sim, overlap=overlap_out)
     power_out = optplan.abs(overlap_out)**2
 
-    power_objs.append(power_kerr)
+    power_objs.append(phase_from_zero)
     power_objs.append(power_out)
 
-    monitor_list.append(optplan.SimpleMonitor(name="powerKerr", function=power_kerr))
+    monitor_list.append(optplan.SimpleMonitor(name="phaseAvg", function=phase_avg))
     monitor_list.append(optplan.SimpleMonitor(name="powerOut", function=power_out))
 
     # Spins minimizes the objective function, so to make `power` maximized,
     # we minimize `1 - power`.
-    obj = 0
-    for power in power_objs:
-        obj += (1 - power) ** 2
+    obj = phase_from_zero ** 2 + (1 - power_out) ** 2
+    # for power in power_objs:
+    #    obj += (1 - power) ** 2
 
     monitor_list.append(optplan.SimpleMonitor(name="objective", function=obj))
 
@@ -234,7 +234,7 @@ def create_transformations(
         monitors: List[optplan.Monitor],
         sim_space: optplan.SimulationSpaceBase,
         cont_iters: int,
-        num_stages: int = 4,
+        num_stages: int = 3,
         min_feature: float = 100,
 ) -> List[optplan.Transformation]:
     """Creates a list of transformations for the device optimization.
