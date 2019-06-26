@@ -17,13 +17,13 @@ def _copyfiles(src_folder, dest_folder, filenames):
 
 
 def test_phase(tmpdir):
-    folder = os.path.join(tmpdir, 'phase_test_results')
+    folder = os.path.join(tmpdir, 'GVD_test')
     _copyfiles(CUR_DIR, folder, ["sim_fg_kerr.gds", "sim_bg_kerr.gds"])
 
     sim_space = phase.create_sim_space("sim_fg_kerr.gds", "sim_bg_kerr.gds")
     obj, monitors = phase.create_objective(sim_space)
     trans_list = phase.create_transformations(
-        obj, monitors, sim_space, cont_iters=40, min_feature=50, num_stages=4)
+        obj, monitors, sim_space, cont_iters=12, min_feature=100, num_stages=3)
     plan = optplan.OptimizationPlan(transformations=trans_list)
     problem_graph.run_plan(plan, folder)
 

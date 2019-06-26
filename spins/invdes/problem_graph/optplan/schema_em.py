@@ -449,6 +449,7 @@ class PhaseAbsolute(optplan.Function):
     type = schema_utils.polymorphic_model_type("function.phase_absolute")
     simulation = optplan.ReferenceType(optplan.Function)
     region = optplan.ReferenceType(optplan.EmRegion)
+    path = optplan.ReferenceType(optplan.EmRegion)
 
 
 @optplan.register_node_type()

@@ -697,10 +697,10 @@ def _get_vector_components(field):
 
 
 class PhaseAverageFunction(problem.OptimizationFunction):
-    """Represents an optimization function for the absolute phase of the field."""
+    """Represents an optimization function for the average difference in phase of the field."""
 
     def __init__(self, input_function: problem.OptimizationFunction,
-                 region: np.array):
+                 region: np.array, path: np.array, wavelength):
         """Constructs the objective C*x.
 
         Args:
@@ -711,9 +711,11 @@ class PhaseAverageFunction(problem.OptimizationFunction):
 
         self._input = input_function
         self.region = region
+        self.path = path
         self.center_phases = [0, 0, 0]
         self.old_input = []
         self.current_phase_avg = None
+        self.wavelength = wavelength
 
     def eval(self, input_vals: List[np.ndarray]) -> np.ndarray:
         """Returns the output of the function.
@@ -738,23 +740,31 @@ class PhaseAverageFunction(problem.OptimizationFunction):
 
         region_only_phase = [phase_components[i][np.nonzero(phase_components[i])] for i in range(3)]
 
+        # Get the phase along the specified path (as in, from the source to the region) to get a
+        # phase difference and eliminate the arbitrary +/- 2pi*n added to the phase
+        phase_path_vector = np.angle(input_vals[0][np.nonzero(self.path)])
+        # Unwrap phase along path and break into xyz components
+        phase_path_components = _get_vector_components(phase_path_vector)
+        phase_path = [np.unwrap(phase_path_components[i]) for i in range(3)]
+
+        # The last cell of the phase path is the center cell of region we are optimizing
+        center_phase = [phase_path[i][-1] for i in range(3)]
+        # We want the difference in phase from the source
+        beginning_phase = [phase_path[i][0] for i in range(3)]
+
+        # Update the phases of the optimization region to reference the phase difference along the path
+        mid = len(region_only_phase[0]) // 2
+        path_phase_diff = [center_phase[i] - region_only_phase[i][mid] for i in range(3)]
+        region_only_phase = [region_only_phase[i] + path_phase_diff[i] - beginning_phase[i] for i in range(3)]
+
         # 'Unwrap' the phase so that it is no longer periodic in [-pi, pi) but continuous
         # Unwrapping is done from the center cell outward in both directions
-        mid = len(region_only_phase[0]) // 2
-        for axis, old_center_phase in zip(region_only_phase, self.center_phases):
+        for axis in region_only_phase:
             axis[mid:] = np.unwrap(axis[mid:])
             axis[:mid + 1] = np.flip(np.unwrap(np.flip(axis[:mid + 1])))
 
-            # Correct for if the center cell crossed discontinuity at +/-pi by comparing to the previous
-            # iteration's value and adjusting all values accordingly
-            center_phase_diff = axis[mid] - old_center_phase
-            if center_phase_diff > np.pi:
-                axis -= np.pi
-            elif center_phase_diff < -np.pi:
-                axis += np.pi
-
         # Update the center cell values to compare with on the next iteration
-        self.center_phases = [region_only_phase[i][mid] for i in range(3)]
+        self.center_phases = center_phase
 
         # In taking the average, weight the values by the field magnitude to avoid large changes in
         # phase due to small changes in the field for near-zero fields (similar to grad calculation)
@@ -770,6 +780,8 @@ class PhaseAverageFunction(problem.OptimizationFunction):
 
         # Update cache
         self.current_phase_avg = phase_avg
+
+        print("{}: {}".format(self.wavelength, phase_avg))
 
         return phase_avg
 
@@ -810,8 +822,9 @@ def create_phase_absolute_function(params: optplan.ProblemGraphNode,
     simspace = work.get_object(params.simulation.simulation_space)
     wlen = params.simulation.wavelength
     region = fdfd_tools.vec(work.get_object(params.region)(simspace, wlen))
+    path = fdfd_tools.vec(work.get_object(params.path)(simspace, wlen))
     return PhaseAverageFunction(
-        input_function=work.get_object(params.simulation), region=region)
+        input_function=work.get_object(params.simulation), region=region, path=path, wavelength=wlen)
 
 
 # TODO(logansu): Merge this into `AbsoluteValue`.

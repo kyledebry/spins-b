@@ -1,0 +1,43 @@
+monitor_list:
+- monitor_names: [field1550]
+  monitor_type: planar
+  vector_operation: magnitude
+
+- monitor_names: [epsilon]
+  monitor_type: planar
+  scalar_operation: magnitude
+  vector_operation: z
+
+- monitor_names: [GVD1350]
+  monitor_type: scalar
+
+- monitor_names: [GVD1450]
+  monitor_type: scalar
+
+- monitor_names: [GVD1550]
+  monitor_type: scalar
+
+- monitor_names: [GVD1650]
+  monitor_type: scalar
+
+- monitor_names: [GVD1750]
+  monitor_type: scalar
+
+- monitor_names: [objective]
+  monitor_type: scalar
+
+- monitor_names: [powerOut1550]
+  monitor_type: scalar
+  scalar_operation: magnitude_squared
+
+- monitor_names: [phase1545]
+  monitor_type: scalar
+  scalar_operation: real
+
+- monitor_names: [phase1550]
+  monitor_type: scalar
+  scalar_operation: real
+
+- monitor_names: [phase1555]
+  monitor_type: scalar
+  scalar_operation: real

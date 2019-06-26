@@ -29,7 +29,7 @@ from spins.invdes import problem_graph
 from spins.invdes.problem_graph import optplan
 
 # Yee cell grid spacing in nanometers.
-GRID_SPACING = 20
+GRID_SPACING = 40
 # If `True`, perform the simulation in 2D. Else in 3D.
 SIM_2D = True
 # Silicon refractive index to use for 2D simulations. This should be the
@@ -37,6 +37,11 @@ SIM_2D = True
 SI_2D_INDEX = 2.20
 # Silicon refractive index to use for 3D simulations.
 SI_3D_INDEX = 3.45
+
+WIDTH = 2500            # Width from source to output
+NM_TO_M = 1e-9          # Conversion from nm to m
+S2M_TO_FS2MM = 1e27     # Conversion from s^2/m to fs^2/mm for GVD
+C = 299792458           # Speed of light (m/s)
 
 
 def main() -> None:
@@ -125,6 +130,30 @@ def create_sim_space(gds_fg: str, gds_bg: str) -> optplan.SimulationSpace:
     )
 
 
+def create_gvd_objective(phase: List[optplan.PhaseAbsolute], d_wavelength) -> optplan.Function:
+    """Creates a group velocity dispersion objective function evaluated at a given frequency.
+
+    Args:
+        phase: three phase functions that are closely spaced in frequency for calculating differences
+        d_wavelength: the change in wavelength between the three phase measurements
+    """
+
+    # Convert wavelength to meters
+    d_wavelength_m = d_wavelength * NM_TO_M
+
+    # First derivative (up to constant)
+    d_phase_1 = phase[1] - phase[0]
+    d_phase_2 = phase[2] - phase[1]
+
+    # Second derivative (including all constants)
+    gvd_si_units = ((d_wavelength_m / C) ** 2) * (d_phase_2 - d_phase_1) / (WIDTH * NM_TO_M)
+
+    # Convert to traditional units of fs^2/mm
+    gvd = gvd_si_units * S2M_TO_FS2MM
+
+    return gvd
+
+
 def create_objective(sim_space: optplan.SimulationSpace
                      ) -> Tuple[optplan.Function, List[optplan.Monitor]]:
     """Creates the objective function to be minimized.
@@ -144,11 +173,6 @@ def create_objective(sim_space: optplan.SimulationSpace
         the optimization process.
     """
 
-    opt_kerr = True
-
-    # Set the wavelength to simulate at
-    wlen = 1550
-
     # Create the waveguide source at the input.
     wg_source = optplan.WaveguideModeSource(
         center=[-1770, 0, 0],
@@ -158,13 +182,21 @@ def create_objective(sim_space: optplan.SimulationSpace
         power=1.0,
     )
 
-    # Create modal overlaps at the two output waveguides.
+    # Create the region in which to optimize the phase in.
     phase_region = optplan.Region(
         center=[1730, 0, 0],
         extents=[GRID_SPACING, 1500, 6*GRID_SPACING],
         power=1,
     )
 
+    # Create a path from the source to the output to track the phase over.
+    phase_path = optplan.Region(
+        center=[-20, 0, 0],
+        extents=[2500, GRID_SPACING, GRID_SPACING],
+        power=1
+    )
+
+    # Create the modal overlap at the output waveguide.
     overlap_out = optplan.WaveguideModeOverlap(
         center=[1730, 0, 0],
         extents=[GRID_SPACING, 1500, 600],
@@ -173,56 +205,97 @@ def create_objective(sim_space: optplan.SimulationSpace
         power=1,
     )
 
-    power_objs = []
     # Keep track of metrics and fields that we want to monitor.
+    gvd_list = []
+    power_objs = []
     monitor_list = []
 
-    epsilon = optplan.Epsilon(
-        simulation_space=sim_space,
-        wavelength=wlen,
-    )
+    # Set the wavelengths, wavelength differences, and goal GVDs to simulate and optimize
+    d_wavelength = 5
+    optimization_wavelength = [1350, 1450, 1550, 1650, 1750]
+    optimization_gvd = [0] * len(optimization_wavelength)
 
-    sim = optplan.FdfdSimulation(
-        source=wg_source,
-        # Use a direct matrix solver (e.g. LU-factorization) on CPU for
-        # 2D simulations and the GPU Maxwell solver for 3D.
-        solver="local_direct" if SIM_2D else "maxwell_cg",
-        wavelength=wlen,
-        simulation_space=sim_space,
-        epsilon=epsilon,
-    )
+    # Calculate the GVD at each wavelength
+    for center_wavelength in optimization_wavelength:
 
-    monitor_list.append(
-        optplan.FieldMonitor(
-            name="field{}".format(wlen),
-            function=sim,
-            normal=[0, 0, 1],
-            center=[0, 0, 0],
-        ))
+        # Use three different wavelengths, spaced by d_wavelength, to approximate the GVD
+        gvd_wavelengths = (center_wavelength - d_wavelength, center_wavelength, center_wavelength + d_wavelength)
 
-    monitor_list.append(
-        optplan.FieldMonitor(
-            name="epsilon",
-            function=epsilon,
-            normal=[0, 0, 1],
-            center=[0, 0, 0]))
+        center_sim = None
+        center_epsilon = None
 
-    phase_avg = optplan.PhaseAbsolute(simulation=sim, region=phase_region)
-    phase_from_zero = optplan.abs(phase_avg)
-    overlap_out = optplan.Overlap(simulation=sim, overlap=overlap_out)
-    power_out = optplan.abs(overlap_out)**2
+        # Keep track of resulting phases for GVD calculation
+        gvd_phases = []
 
-    power_objs.append(phase_from_zero)
-    power_objs.append(power_out)
+        # Simulate at each of the three wavelengths, and save field and epsilon info for the middle
+        # wavelength for things that do not depend strongly on wavelength (like output power)
+        for center, sim_wavelength in zip([False, True, False], gvd_wavelengths):
 
-    monitor_list.append(optplan.SimpleMonitor(name="phaseAvg", function=phase_avg))
-    monitor_list.append(optplan.SimpleMonitor(name="powerOut", function=power_out))
+            epsilon = optplan.Epsilon(
+                simulation_space=sim_space,
+                wavelength=sim_wavelength,
+            )
+
+            sim = optplan.FdfdSimulation(
+                source=wg_source,
+                # Use a direct matrix solver (e.g. LU-factorization) on CPU for
+                # 2D simulations and the GPU Maxwell solver for 3D.
+                solver="local_direct" if SIM_2D else "maxwell_cg",
+                wavelength=sim_wavelength,
+                simulation_space=sim_space,
+                epsilon=epsilon,
+            )
+
+            # Save center wavelength simulation objects
+            if center:
+                center_sim = sim
+                center_epsilon = epsilon
+
+            # Create phase objectives and monitors
+            phase = optplan.PhaseAbsolute(simulation=sim, region=phase_region, path=phase_path)
+            monitor_list.append(optplan.SimpleMonitor(name="phase{}".format(sim_wavelength), function=phase))
+            gvd_phases.append(phase)
+
+        # Calculate GVD from the three phases at three wavelengths
+        gvd = create_gvd_objective(gvd_phases, d_wavelength)
+
+        # Store GVD function and add to monitor list
+        gvd_list.append(gvd)
+        monitor_list.append(optplan.SimpleMonitor(name="GVD{}".format(center_wavelength), function=gvd))
+
+        # Add the field at the center wavelength to the monitor list
+        monitor_list.append(
+            optplan.FieldMonitor(
+                name="field{}".format(center_wavelength),
+                function=center_sim,
+                normal=[0, 0, 1],
+                center=[0, 0, 0],
+            ))
+
+        # Only store epsilon information once because it is the same at each wavelength
+        if center_wavelength == 1550:
+            monitor_list.append(
+                optplan.FieldMonitor(
+                    name="epsilon",
+                    function=center_epsilon,
+                    normal=[0, 0, 1],
+                    center=[0, 0, 0]))
+
+        # Create output power objectives and monitors
+        overlap_out_obj = optplan.Overlap(simulation=center_sim, overlap=overlap_out)
+        power_out = optplan.abs(overlap_out_obj)**2
+        power_objs.append(power_out)
+        monitor_list.append(optplan.SimpleMonitor(name="powerOut{}".format(center_wavelength), function=power_out))
 
     # Spins minimizes the objective function, so to make `power` maximized,
     # we minimize `1 - power`.
-    obj = phase_from_zero ** 2 + (1 - power_out) ** 2
-    # for power in power_objs:
-    #    obj += (1 - power) ** 2
+    obj = 0
+    for power in power_objs:
+        obj += (1 - power) ** 2
+
+    # Minimize distance between simulated GVD and goal GVD at each wavelength
+    for goal, gvd in zip(optimization_gvd, gvd_list):
+        obj += optplan.abs(goal - gvd) ** 2
 
     monitor_list.append(optplan.SimpleMonitor(name="objective", function=obj))
 
