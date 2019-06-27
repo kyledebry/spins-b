@@ -349,7 +349,7 @@ def process_scalar(data: Union[float, List],
         Does nothing is `scalar_operation` is `None`.
     """
     if not scalar_operation:
-        return data
+        return np.abs(data)
     elif scalar_operation.lower() == "magnitude_squared":
         return np.absolute(data)**2
     elif scalar_operation.lower() == "magnitude":
@@ -382,15 +382,15 @@ def process_field(field: List,
         List containing the processed field data.
     """
     if vector_operation.lower() == "magnitude":
-        mag = (np.sqrt(
+        vec_result = (np.sqrt(
             np.abs(field[0])**2 + np.abs(field[1])**2 + np.abs(field[2])**2))
     elif vector_operation.lower() == "x":
-        mag = np.abs(field[0])
+        vec_result = field[0]
     elif vector_operation.lower() == "y":
-        mag = np.abs(field[1])
+        vec_result = field[1]
     elif vector_operation.lower() == "z":
-        mag = np.abs(field[2])
-    mag = process_scalar(mag, scalar_operation=scalar_operation)
+        vec_result = field[2]
+    mag = process_scalar(vec_result, scalar_operation=scalar_operation)
     return mag
 
 

@@ -73,7 +73,7 @@ def create_sim_space(gds_fg: str, gds_bg: str) -> optplan.SimulationSpace:
     The simulation space contains information about the boundary conditions,
     gridding, and design region of the simulation. The material stack is
     220 nm of silicon surrounded by oxide. The refractive index of the silicon
-    changes based on whether the global viarble `SIM_2D` is set.
+    changes based on whether the global variable `SIM_2D` is set.
 
     Args:
         gds_fg: Location of the foreground GDS file.
@@ -82,7 +82,7 @@ def create_sim_space(gds_fg: str, gds_bg: str) -> optplan.SimulationSpace:
     Returns:
         A `SimulationSpace` description.
     """
-    mat_oxide = optplan.Material(index=optplan.ComplexNumber(real=1.5))
+    mat_oxide = optplan.Material(mat_name="SiO2")
     if SIM_2D:
         device_index = SI_2D_INDEX
     else:
@@ -98,8 +98,7 @@ def create_sim_space(gds_fg: str, gds_bg: str) -> optplan.SimulationSpace:
                 extents=[-10000, -110],
             ),
             optplan.GdsMaterialStackLayer(
-                foreground=optplan.Material(
-                    index=optplan.ComplexNumber(real=device_index)),
+                foreground=optplan.Material(mat_name="Si"),
                 background=mat_oxide,
                 gds_layer=[100, 0],
                 extents=[-110, 110],
@@ -110,9 +109,9 @@ def create_sim_space(gds_fg: str, gds_bg: str) -> optplan.SimulationSpace:
     if SIM_2D:
         # If the simulation is 2D, then we just take a slice through the
         # device layer at z = 0. We apply periodic boundary conditions along
-        # the z-axis by setting PML thicknes to zero.
+        # the z-axis by setting PML thickness to zero.
         sim_region = optplan.Box3d(
-            center=[0, 0, 0], extents=[5000, 5000, GRID_SPACING])
+            center=[0, 0, 0], extents=[6000, 4000, GRID_SPACING])
         pml_thickness = [10, 10, 10, 10, 0, 0]
     else:
         sim_region = optplan.Box3d(center=[0, 0, 0], extents=[5000, 5000, 2000])
@@ -154,6 +153,14 @@ def create_gvd_objective(phase: List[optplan.PhaseAbsolute], d_wavelength) -> op
     return gvd
 
 
+def thz_to_nm(thz):
+    hz = thz * 1e12
+    wavelength = C / hz
+    wavelength_nm = wavelength / NM_TO_M
+
+    return round(wavelength_nm)
+
+
 def create_objective(sim_space: optplan.SimulationSpace
                      ) -> Tuple[optplan.Function, List[optplan.Monitor]]:
     """Creates the objective function to be minimized.
@@ -175,7 +182,7 @@ def create_objective(sim_space: optplan.SimulationSpace
 
     # Create the waveguide source at the input.
     wg_source = optplan.WaveguideModeSource(
-        center=[-1770, 0, 0],
+        center=[-2000, 0, 0],
         extents=[GRID_SPACING, 1500, 600],
         normal=[1, 0, 0],
         mode_num=0,
@@ -184,21 +191,21 @@ def create_objective(sim_space: optplan.SimulationSpace
 
     # Create the region in which to optimize the phase in.
     phase_region = optplan.Region(
-        center=[1730, 0, 0],
+        center=[2000, 0, 0],
         extents=[GRID_SPACING, 1500, 6*GRID_SPACING],
         power=1,
     )
 
     # Create a path from the source to the output to track the phase over.
     phase_path = optplan.Region(
-        center=[-20, 0, 0],
-        extents=[2500, GRID_SPACING, GRID_SPACING],
+        center=[0, 0, 0],
+        extents=[4000, GRID_SPACING, GRID_SPACING],
         power=1
     )
 
     # Create the modal overlap at the output waveguide.
     overlap_out = optplan.WaveguideModeOverlap(
-        center=[1730, 0, 0],
+        center=[2000, 0, 0],
         extents=[GRID_SPACING, 1500, 600],
         mode_num=0,
         normal=[1, 0, 0],
@@ -211,9 +218,10 @@ def create_objective(sim_space: optplan.SimulationSpace
     monitor_list = []
 
     # Set the wavelengths, wavelength differences, and goal GVDs to simulate and optimize
-    d_wavelength = 5
-    optimization_wavelength = [1350, 1450, 1550, 1650, 1750]
-    optimization_gvd = [0] * len(optimization_wavelength)
+    d_wavelength = 20
+    optimization_wavelength = [thz_to_nm(185), thz_to_nm(195), thz_to_nm(205)]
+    print(optimization_wavelength)
+    optimization_gvd = [50, -5, 50]
 
     # Calculate the GVD at each wavelength
     for center_wavelength in optimization_wavelength:
@@ -273,7 +281,7 @@ def create_objective(sim_space: optplan.SimulationSpace
             ))
 
         # Only store epsilon information once because it is the same at each wavelength
-        if center_wavelength == 1550:
+        if center_wavelength == optimization_wavelength[len(optimization_wavelength) // 2]:
             monitor_list.append(
                 optplan.FieldMonitor(
                     name="epsilon",
@@ -295,7 +303,7 @@ def create_objective(sim_space: optplan.SimulationSpace
 
     # Minimize distance between simulated GVD and goal GVD at each wavelength
     for goal, gvd in zip(optimization_gvd, gvd_list):
-        obj += optplan.abs(goal - gvd) ** 2
+        obj += 0.01 * optplan.abs(goal - gvd) ** 2
 
     monitor_list.append(optplan.SimpleMonitor(name="objective", function=obj))
 

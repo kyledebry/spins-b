@@ -781,7 +781,7 @@ class PhaseAverageFunction(problem.OptimizationFunction):
         # Update cache
         self.current_phase_avg = phase_avg
 
-        print("{}: {}".format(self.wavelength, phase_avg))
+        # print("{}: {}".format(self.wavelength, phase_avg))
 
         return phase_avg
 

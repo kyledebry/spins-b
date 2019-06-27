@@ -17,10 +17,10 @@ def _copyfiles(src_folder, dest_folder, filenames):
 
 
 def test_phase(tmpdir):
-    folder = os.path.join(tmpdir, 'GVD_test')
-    _copyfiles(CUR_DIR, folder, ["sim_fg_kerr.gds", "sim_bg_kerr.gds"])
+    folder = os.path.join(tmpdir, 'GVD_test_wg')
+    _copyfiles(CUR_DIR, folder, ["sim_fg_gvd.gds", "sim_bg_gvd.gds"])
 
-    sim_space = phase.create_sim_space("sim_fg_kerr.gds", "sim_bg_kerr.gds")
+    sim_space = phase.create_sim_space("sim_fg_gvd.gds", "sim_bg_gvd.gds")
     obj, monitors = phase.create_objective(sim_space)
     trans_list = phase.create_transformations(
         obj, monitors, sim_space, cont_iters=12, min_feature=100, num_stages=3)

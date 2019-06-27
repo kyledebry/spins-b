@@ -22,6 +22,7 @@ from typing import List, Tuple
 import numpy as np
 from numpy.linalg import norm
 import scipy.sparse as sparse
+import warnings
 
 from . import unvec, dx_lists_t, field_t, vfield_t
 from . import operators
@@ -76,7 +77,11 @@ def operator(
 
     # We return the operator as a real operator - For unknown reasons the, even with the
     # bloch vector set to 0, returning a complex operator seems to interfere with the eigen solve
-    return op.astype(float)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        op_real = op.astype(float)
+
+    return op_real
 
 
 def normalized_fields(v: np.ndarray,

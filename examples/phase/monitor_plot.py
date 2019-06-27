@@ -12,7 +12,7 @@ def plot():
     # Define filenames.
 
     # `save_folder` is the full path to the directory containing the Pickle (.pkl) log files from the optimization.
-    save_folder = os.path.join(os.getcwd(), 'GVD_test')
+    save_folder = os.path.join(os.getcwd(), 'GVD_test_wg')
     spec_folder = os.getcwd()
 
     # Load the logged monitor data and monitor spec information.

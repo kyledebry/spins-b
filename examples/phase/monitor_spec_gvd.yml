@@ -1,43 +1,76 @@
 monitor_list:
-- monitor_names: [field1550]
+- monitor_names: [field1462]
   monitor_type: planar
   vector_operation: magnitude
+
+- monitor_names: [field1537]
+  monitor_type: planar
+  vector_operation: magnitude
+
+- monitor_names: [field1620]
+  monitor_type: planar
+  vector_operation: magnitude
+
+#- monitor_names: [field1713]
+#  monitor_type: planar
+#  vector_operation: magnitude
+- monitor_names: [epsilon]
+  monitor_type: planar
+  scalar_operation: magnitude
+  vector_operation: z
+
+- monitor_names: [field1462]
+  monitor_type: planar
+  vector_operation: z
+  scalar_operation: phase
+
+- monitor_names: [field1537]
+  monitor_type: planar
+  vector_operation: z
+  scalar_operation: phase
+
+- monitor_names: [field1620]
+  monitor_type: planar
+  vector_operation: z
+  scalar_operation: phase
+
+#- monitor_names: [field1713]
+#  monitor_type: planar
+#  vector_operation: z
+#  scalar_operation: phase
 
 - monitor_names: [epsilon]
   monitor_type: planar
   scalar_operation: magnitude
   vector_operation: z
 
-- monitor_names: [GVD1350]
+- monitor_names: [GVD1462]
   monitor_type: scalar
 
-- monitor_names: [GVD1450]
+- monitor_names: [GVD1537]
   monitor_type: scalar
 
-- monitor_names: [GVD1550]
+- monitor_names: [GVD1620]
   monitor_type: scalar
 
-- monitor_names: [GVD1650]
-  monitor_type: scalar
-
-- monitor_names: [GVD1750]
-  monitor_type: scalar
+#- monitor_names: [GVD1713]
+#  monitor_type: scalar
 
 - monitor_names: [objective]
   monitor_type: scalar
 
-- monitor_names: [powerOut1550]
+- monitor_names: [powerOut1462]
   monitor_type: scalar
   scalar_operation: magnitude_squared
 
-- monitor_names: [phase1545]
+- monitor_names: [powerOut1537]
   monitor_type: scalar
-  scalar_operation: real
+  scalar_operation: magnitude_squared
 
-- monitor_names: [phase1550]
+- monitor_names: [powerOut1620]
   monitor_type: scalar
-  scalar_operation: real
+  scalar_operation: magnitude_squared
 
-- monitor_names: [phase1555]
-  monitor_type: scalar
-  scalar_operation: real
+#- monitor_names: [powerOut1713]
+#  monitor_type: scalar
+#  scalar_operation: magnitude_squared
