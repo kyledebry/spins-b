@@ -182,8 +182,8 @@ def create_objective(sim_space: optplan.SimulationSpace
 
     # Create the waveguide source at the input.
     wg_source = optplan.WaveguideModeSource(
-        center=[-2000, 0, 0],
-        extents=[GRID_SPACING, 1500, 600],
+        center=[-2200, 0, 0],
+        extents=[GRID_SPACING, 1000, 600],
         normal=[1, 0, 0],
         mode_num=0,
         power=1.0,
@@ -191,22 +191,22 @@ def create_objective(sim_space: optplan.SimulationSpace
 
     # Create the region in which to optimize the phase in.
     phase_region = optplan.Region(
-        center=[2000, 0, 0],
-        extents=[GRID_SPACING, 1500, 6*GRID_SPACING],
+        center=[2200, 0, 0],
+        extents=[GRID_SPACING, 1000, 6*GRID_SPACING],
         power=1,
     )
 
     # Create a path from the source to the output to track the phase over.
     phase_path = optplan.Region(
         center=[0, 0, 0],
-        extents=[4000, GRID_SPACING, GRID_SPACING],
+        extents=[4400, GRID_SPACING, GRID_SPACING],
         power=1
     )
 
     # Create the modal overlap at the output waveguide.
     overlap_out = optplan.WaveguideModeOverlap(
-        center=[2000, 0, 0],
-        extents=[GRID_SPACING, 1500, 600],
+        center=[2200, 0, 0],
+        extents=[GRID_SPACING, 1000, 600],
         mode_num=0,
         normal=[1, 0, 0],
         power=1,
@@ -221,7 +221,7 @@ def create_objective(sim_space: optplan.SimulationSpace
     d_wavelength = 20
     optimization_wavelength = [thz_to_nm(185), thz_to_nm(195), thz_to_nm(205)]
     print(optimization_wavelength)
-    optimization_gvd = [50, -5, 50]
+    optimization_gvd = [50, -10, 50]
 
     # Calculate the GVD at each wavelength
     for center_wavelength in optimization_wavelength:
