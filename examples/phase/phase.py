@@ -21,15 +21,15 @@ already.
 To process the optimization data, see the IPython notebook contained in this
 folder, or the monitor_plot_kerr.py file.
 """
-from typing import List, Tuple
-
+from typing import List, Tuple, Union
+import yaml
 import numpy as np
 
 from spins.invdes import problem_graph
 from spins.invdes.problem_graph import optplan
 
 # Yee cell grid spacing in nanometers.
-GRID_SPACING = 40
+GRID_SPACING = 20
 # If `True`, perform the simulation in 2D. Else in 3D.
 SIM_2D = True
 # Silicon refractive index to use for 2D simulations. This should be the
@@ -38,10 +38,10 @@ SI_2D_INDEX = 2.20
 # Silicon refractive index to use for 3D simulations.
 SI_3D_INDEX = 3.45
 
-WIDTH = 2500            # Width from source to output
-NM_TO_M = 1e-9          # Conversion from nm to m
-S2M_TO_FS2MM = 1e27     # Conversion from s^2/m to fs^2/mm for GVD
-C = 299792458           # Speed of light (m/s)
+WIDTH = 2500  # Width from source to output
+NM_TO_M = 1e-9  # Conversion from nm to m
+S2M_TO_FS2MM = 1e27  # Conversion from s^2/m to fs^2/mm for GVD
+C = 299792458  # Speed of light (m/s)
 
 
 def main() -> None:
@@ -111,7 +111,7 @@ def create_sim_space(gds_fg: str, gds_bg: str) -> optplan.SimulationSpace:
         # device layer at z = 0. We apply periodic boundary conditions along
         # the z-axis by setting PML thickness to zero.
         sim_region = optplan.Box3d(
-            center=[0, 0, 0], extents=[6000, 4000, GRID_SPACING])
+            center=[0, 0, 0], extents=[6000, 3000, GRID_SPACING])
         pml_thickness = [10, 10, 10, 10, 0, 0]
     else:
         sim_region = optplan.Box3d(center=[0, 0, 0], extents=[5000, 5000, 2000])
@@ -153,7 +153,42 @@ def create_gvd_objective(phase: List[optplan.PhaseAbsolute], d_wavelength) -> op
     return gvd
 
 
-def thz_to_nm(thz):
+def finite_difference_second_derivative(f: List[optplan.Function], delta: float, i: int) -> optplan.Function:
+    """Approximates the second derivative of f at the i-th point using finite difference coefficients.
+
+    See https://en.wikipedia.org/wiki/Finite_difference_coefficient#Arbitrary_stencil_points
+    Code from http://web.media.mit.edu/~crtaylor/calculator.html"""
+    assert len(f) >= 5
+    values_after = len(f) - 1 - i
+
+    if i == 0:
+        difference = (35 * f[i + 0] - 104 * f[i + 1] + 114 * f[i + 2] - 56 * f[i + 3] + 11 * f[i + 4]) / 12
+    elif i == 1:
+        difference = (11 * f[i - 1] - 20 * f[i + 0] + 6 * f[i + 1] + 4 * f[i + 2] - 1 * f[i + 3]) / 12
+    elif values_after == 0:
+        difference = (11 * f[i - 4] - 56 * f[i - 3] + 114 * f[i - 2] - 104 * f[i - 1] + 35 * f[i + 0]) / 12
+    elif values_after == 1:
+        difference = (-1 * f[i - 3] + 4 * f[i - 2] + 6 * f[i - 1] - 20 * f[i + 0] + 11 * f[i + 1]) / 12
+    else:
+        difference = (-1 * f[i - 2] + 16 * f[i - 1] - 30 * f[i + 0] + 16 * f[i + 1] - 1 * f[i + 2]) / 12
+
+    derivative = difference / (delta ** 2)
+
+    return derivative
+
+
+def create_gvd_multiple_difference(k: List[optplan.Function], frequency_step: float) -> List[optplan.Function]:
+    gvd = []
+    omega_step = 2 * np.pi * frequency_step
+
+    for i in range(len(k)):
+        derivative = finite_difference_second_derivative(k, omega_step, i)
+        gvd.append(derivative)
+
+    return gvd
+
+
+def thz_to_nm(thz: Union[int, np.array]):
     hz = thz * 1e12
     wavelength = C / hz
     wavelength_nm = wavelength / NM_TO_M
@@ -180,10 +215,12 @@ def create_objective(sim_space: optplan.SimulationSpace
         the optimization process.
     """
 
+    path_length = 4400
+
     # Create the waveguide source at the input.
     wg_source = optplan.WaveguideModeSource(
-        center=[-2200, 0, 0],
-        extents=[GRID_SPACING, 1000, 600],
+        center=[-path_length // 2, 0, 0],
+        extents=[GRID_SPACING, 800, 600],
         normal=[1, 0, 0],
         mode_num=0,
         power=1.0,
@@ -191,109 +228,98 @@ def create_objective(sim_space: optplan.SimulationSpace
 
     # Create the region in which to optimize the phase in.
     phase_region = optplan.Region(
-        center=[2200, 0, 0],
-        extents=[GRID_SPACING, 1000, 6*GRID_SPACING],
+        center=[path_length // 2, 0, 0],
+        extents=[GRID_SPACING, 800, 6 * GRID_SPACING],
         power=1,
     )
 
     # Create a path from the source to the output to track the phase over.
     phase_path = optplan.Region(
         center=[0, 0, 0],
-        extents=[4400, GRID_SPACING, GRID_SPACING],
+        extents=[path_length, GRID_SPACING, GRID_SPACING],
         power=1
     )
 
     # Create the modal overlap at the output waveguide.
     overlap_out = optplan.WaveguideModeOverlap(
-        center=[2200, 0, 0],
-        extents=[GRID_SPACING, 1000, 600],
+        center=[path_length // 2, 0, 0],
+        extents=[GRID_SPACING, 800, 600],
         mode_num=0,
         normal=[1, 0, 0],
         power=1,
     )
 
     # Keep track of metrics and fields that we want to monitor.
-    gvd_list = []
+    k_list = []
     power_objs = []
     monitor_list = []
+    yaml_phase_monitors = []
+    yaml_field_monitors = []
+    yaml_power_monitors = []
+    yaml_scalar_monitors = []
+    yaml_spec = {'monitor_list': []}
 
     # Set the wavelengths, wavelength differences, and goal GVDs to simulate and optimize
-    d_wavelength = 20
-    optimization_wavelength = [thz_to_nm(185), thz_to_nm(195), thz_to_nm(205)]
-    print(optimization_wavelength)
-    optimization_gvd = [50, -10, 50]
+    optimization_frequencies, frequency_step = np.linspace(start=170, stop=200, num=31, retstep=True)
+    optimization_gvd = [5, 5, 5, 2, 0] + [-1] * (len(optimization_frequencies) - 10) + [0, 2, 5, 5, 5]
 
     # Calculate the GVD at each wavelength
-    for center_wavelength in optimization_wavelength:
+    for frequency in optimization_frequencies:
+        sim_wavelength = thz_to_nm(frequency)
 
-        # Use three different wavelengths, spaced by d_wavelength, to approximate the GVD
-        gvd_wavelengths = (center_wavelength - d_wavelength, center_wavelength, center_wavelength + d_wavelength)
+        epsilon = optplan.Epsilon(
+            simulation_space=sim_space,
+            wavelength=sim_wavelength,
+        )
 
-        center_sim = None
-        center_epsilon = None
+        sim = optplan.FdfdSimulation(
+            source=wg_source,
+            # Use a direct matrix solver (e.g. LU-factorization) on CPU for
+            # 2D simulations and the GPU Maxwell solver for 3D.
+            solver="local_direct" if SIM_2D else "maxwell_cg",
+            wavelength=sim_wavelength,
+            simulation_space=sim_space,
+            epsilon=epsilon,
+        )
 
-        # Keep track of resulting phases for GVD calculation
-        gvd_phases = []
+        # Create phase objectives and monitors
+        phase = optplan.PhaseAbsolute(simulation=sim, region=phase_region, path=phase_path)
+        k = phase / path_length
+        monitor_list.append(optplan.SimpleMonitor(name="{} THz Wave Vector".format(frequency), function=k))
+        k_list.append(k)
 
-        # Simulate at each of the three wavelengths, and save field and epsilon info for the middle
-        # wavelength for things that do not depend strongly on wavelength (like output power)
-        for center, sim_wavelength in zip([False, True, False], gvd_wavelengths):
-
-            epsilon = optplan.Epsilon(
-                simulation_space=sim_space,
-                wavelength=sim_wavelength,
-            )
-
-            sim = optplan.FdfdSimulation(
-                source=wg_source,
-                # Use a direct matrix solver (e.g. LU-factorization) on CPU for
-                # 2D simulations and the GPU Maxwell solver for 3D.
-                solver="local_direct" if SIM_2D else "maxwell_cg",
-                wavelength=sim_wavelength,
-                simulation_space=sim_space,
-                epsilon=epsilon,
-            )
-
-            # Save center wavelength simulation objects
-            if center:
-                center_sim = sim
-                center_epsilon = epsilon
-
-            # Create phase objectives and monitors
-            phase = optplan.PhaseAbsolute(simulation=sim, region=phase_region, path=phase_path)
-            monitor_list.append(optplan.SimpleMonitor(name="phase{}".format(sim_wavelength), function=phase))
-            gvd_phases.append(phase)
-
-        # Calculate GVD from the three phases at three wavelengths
-        gvd = create_gvd_objective(gvd_phases, d_wavelength)
-
-        # Store GVD function and add to monitor list
-        gvd_list.append(gvd)
-        monitor_list.append(optplan.SimpleMonitor(name="GVD{}".format(center_wavelength), function=gvd))
-
-        # Add the field at the center wavelength to the monitor list
+        # Add the field to the monitor list
         monitor_list.append(
             optplan.FieldMonitor(
-                name="field{}".format(center_wavelength),
-                function=center_sim,
+                name="{} THz Field".format(frequency),
+                function=sim,
                 normal=[0, 0, 1],
                 center=[0, 0, 0],
             ))
+        yaml_field_monitors.append('{} THz Field'.format(frequency))
+        yaml_phase_monitors.append('{} THz Field'.format(frequency))
 
         # Only store epsilon information once because it is the same at each wavelength
-        if center_wavelength == optimization_wavelength[len(optimization_wavelength) // 2]:
+        if frequency == optimization_frequencies[len(optimization_frequencies) // 2]:
             monitor_list.append(
                 optplan.FieldMonitor(
-                    name="epsilon",
-                    function=center_epsilon,
+                    name="Epsilon",
+                    function=epsilon,
                     normal=[0, 0, 1],
                     center=[0, 0, 0]))
 
         # Create output power objectives and monitors
-        overlap_out_obj = optplan.Overlap(simulation=center_sim, overlap=overlap_out)
-        power_out = optplan.abs(overlap_out_obj)**2
+        overlap_out_obj = optplan.Overlap(simulation=sim, overlap=overlap_out)
+        power_out = optplan.abs(overlap_out_obj) ** 2
         power_objs.append(power_out)
-        monitor_list.append(optplan.SimpleMonitor(name="powerOut{}".format(center_wavelength), function=power_out))
+        monitor_list.append(optplan.SimpleMonitor(name="{} THz Power Out".format(frequency), function=power_out))
+        yaml_power_monitors.append('{} THz Power Out'.format(frequency))
+
+    # Calculate and store GVD functions and add to monitor list
+    gvd_list = create_gvd_multiple_difference(k_list, frequency_step)
+    for gvd, frequency in zip(gvd_list, optimization_frequencies):
+        monitor_list.append(optplan.SimpleMonitor(name="{} THz GVD".format(frequency), function=gvd))
+        yaml_scalar_monitors.append('{} THz GVD'.format(frequency))
 
     # Spins minimizes the objective function, so to make `power` maximized,
     # we minimize `1 - power`.
@@ -303,9 +329,34 @@ def create_objective(sim_space: optplan.SimulationSpace
 
     # Minimize distance between simulated GVD and goal GVD at each wavelength
     for goal, gvd in zip(optimization_gvd, gvd_list):
-        obj += 0.01 * optplan.abs(goal - gvd) ** 2
+        obj += 0.2 * optplan.abs(goal - gvd) ** 2
 
-    monitor_list.append(optplan.SimpleMonitor(name="objective", function=obj))
+    monitor_list.append(optplan.SimpleMonitor(name="Objective", function=obj))
+    yaml_scalar_monitors.append('Objective')
+
+    for monitor in yaml_power_monitors:
+        yaml_spec['monitor_list'].append({'monitor_names':    [monitor],
+                                          'monitor_type':     'scalar',
+                                          'scalar_operation': 'magnitude_squared'})
+    for monitor in yaml_field_monitors:
+        yaml_spec['monitor_list'].append({'monitor_names':    [monitor],
+                                          'monitor_type':     'planar',
+                                          'vector_operation': 'magnitude'})
+    for monitor in yaml_phase_monitors:
+        yaml_spec['monitor_list'].append({'monitor_names':    [monitor],
+                                          'monitor_type':     'planar',
+                                          'vector_operation': 'z',
+                                          'scalar_operation': 'phase'})
+    for monitor in yaml_scalar_monitors:
+        yaml_spec['monitor_list'].append({'monitor_names': [monitor],
+                                          'monitor_type':  'scalar'})
+
+    yaml_spec['monitor_list'].append({'monitor_names':    ['Epsilon'],
+                                      'monitor_type':     'planar',
+                                      'vector_operation': 'z'})
+
+    with open('monitor_spec_dynamic.yml', 'w') as monitor_spec_dynamic:
+        yaml.dump(yaml_spec, monitor_spec_dynamic, default_flow_style=False)
 
     return obj, monitor_list
 

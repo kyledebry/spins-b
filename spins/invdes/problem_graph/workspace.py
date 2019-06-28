@@ -11,6 +11,7 @@ import logging
 import os
 import pickle
 import re
+import numpy as np
 from typing import Dict, List, Optional, Union
 
 from spins.invdes import parametrization
@@ -345,6 +346,8 @@ class Logger:
                 [self._work.get_object(mon) for mon in monitor_list], param)
             for mon, mon_val in zip(monitor_list, mon_vals):
                 monitor_data[mon.name] = mon_val
+
+        self._logger.info("Objective: " + str(np.real(monitor_data['Objective'].max())))
 
         # Get workspace parameters.
         parameter_data = {}

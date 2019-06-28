@@ -23,7 +23,7 @@ def test_phase(tmpdir):
     sim_space = phase.create_sim_space("sim_fg_gvd.gds", "sim_bg_gvd.gds")
     obj, monitors = phase.create_objective(sim_space)
     trans_list = phase.create_transformations(
-        obj, monitors, sim_space, cont_iters=12, min_feature=100, num_stages=3)
+        obj, monitors, sim_space, cont_iters=50, min_feature=50, num_stages=5)
     plan = optplan.OptimizationPlan(transformations=trans_list)
     problem_graph.run_plan(plan, folder)
 
