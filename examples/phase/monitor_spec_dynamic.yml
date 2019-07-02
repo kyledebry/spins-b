@@ -1,10 +1,26 @@
 monitor_list:
 - monitor_names:
-  - 170.0 THz Power Out
+  - 160.0 THz Power Out
   monitor_type: scalar
   scalar_operation: magnitude_squared
 - monitor_names:
-  - 171.0 THz Power Out
+  - 162.0 THz Power Out
+  monitor_type: scalar
+  scalar_operation: magnitude_squared
+- monitor_names:
+  - 164.0 THz Power Out
+  monitor_type: scalar
+  scalar_operation: magnitude_squared
+- monitor_names:
+  - 166.0 THz Power Out
+  monitor_type: scalar
+  scalar_operation: magnitude_squared
+- monitor_names:
+  - 168.0 THz Power Out
+  monitor_type: scalar
+  scalar_operation: magnitude_squared
+- monitor_names:
+  - 170.0 THz Power Out
   monitor_type: scalar
   scalar_operation: magnitude_squared
 - monitor_names:
@@ -12,15 +28,7 @@ monitor_list:
   monitor_type: scalar
   scalar_operation: magnitude_squared
 - monitor_names:
-  - 173.0 THz Power Out
-  monitor_type: scalar
-  scalar_operation: magnitude_squared
-- monitor_names:
   - 174.0 THz Power Out
-  monitor_type: scalar
-  scalar_operation: magnitude_squared
-- monitor_names:
-  - 175.0 THz Power Out
   monitor_type: scalar
   scalar_operation: magnitude_squared
 - monitor_names:
@@ -28,15 +36,7 @@ monitor_list:
   monitor_type: scalar
   scalar_operation: magnitude_squared
 - monitor_names:
-  - 177.0 THz Power Out
-  monitor_type: scalar
-  scalar_operation: magnitude_squared
-- monitor_names:
   - 178.0 THz Power Out
-  monitor_type: scalar
-  scalar_operation: magnitude_squared
-- monitor_names:
-  - 179.0 THz Power Out
   monitor_type: scalar
   scalar_operation: magnitude_squared
 - monitor_names:
@@ -44,15 +44,7 @@ monitor_list:
   monitor_type: scalar
   scalar_operation: magnitude_squared
 - monitor_names:
-  - 181.0 THz Power Out
-  monitor_type: scalar
-  scalar_operation: magnitude_squared
-- monitor_names:
   - 182.0 THz Power Out
-  monitor_type: scalar
-  scalar_operation: magnitude_squared
-- monitor_names:
-  - 183.0 THz Power Out
   monitor_type: scalar
   scalar_operation: magnitude_squared
 - monitor_names:
@@ -60,15 +52,7 @@ monitor_list:
   monitor_type: scalar
   scalar_operation: magnitude_squared
 - monitor_names:
-  - 185.0 THz Power Out
-  monitor_type: scalar
-  scalar_operation: magnitude_squared
-- monitor_names:
   - 186.0 THz Power Out
-  monitor_type: scalar
-  scalar_operation: magnitude_squared
-- monitor_names:
-  - 187.0 THz Power Out
   monitor_type: scalar
   scalar_operation: magnitude_squared
 - monitor_names:
@@ -76,15 +60,7 @@ monitor_list:
   monitor_type: scalar
   scalar_operation: magnitude_squared
 - monitor_names:
-  - 189.0 THz Power Out
-  monitor_type: scalar
-  scalar_operation: magnitude_squared
-- monitor_names:
   - 190.0 THz Power Out
-  monitor_type: scalar
-  scalar_operation: magnitude_squared
-- monitor_names:
-  - 191.0 THz Power Out
   monitor_type: scalar
   scalar_operation: magnitude_squared
 - monitor_names:
@@ -92,15 +68,7 @@ monitor_list:
   monitor_type: scalar
   scalar_operation: magnitude_squared
 - monitor_names:
-  - 193.0 THz Power Out
-  monitor_type: scalar
-  scalar_operation: magnitude_squared
-- monitor_names:
   - 194.0 THz Power Out
-  monitor_type: scalar
-  scalar_operation: magnitude_squared
-- monitor_names:
-  - 195.0 THz Power Out
   monitor_type: scalar
   scalar_operation: magnitude_squared
 - monitor_names:
@@ -108,15 +76,7 @@ monitor_list:
   monitor_type: scalar
   scalar_operation: magnitude_squared
 - monitor_names:
-  - 197.0 THz Power Out
-  monitor_type: scalar
-  scalar_operation: magnitude_squared
-- monitor_names:
   - 198.0 THz Power Out
-  monitor_type: scalar
-  scalar_operation: magnitude_squared
-- monitor_names:
-  - 199.0 THz Power Out
   monitor_type: scalar
   scalar_operation: magnitude_squared
 - monitor_names:
@@ -124,11 +84,27 @@ monitor_list:
   monitor_type: scalar
   scalar_operation: magnitude_squared
 - monitor_names:
-  - 170.0 THz Field
+  - 160.0 THz Field
   monitor_type: planar
   vector_operation: magnitude
 - monitor_names:
-  - 171.0 THz Field
+  - 162.0 THz Field
+  monitor_type: planar
+  vector_operation: magnitude
+- monitor_names:
+  - 164.0 THz Field
+  monitor_type: planar
+  vector_operation: magnitude
+- monitor_names:
+  - 166.0 THz Field
+  monitor_type: planar
+  vector_operation: magnitude
+- monitor_names:
+  - 168.0 THz Field
+  monitor_type: planar
+  vector_operation: magnitude
+- monitor_names:
+  - 170.0 THz Field
   monitor_type: planar
   vector_operation: magnitude
 - monitor_names:
@@ -136,15 +112,7 @@ monitor_list:
   monitor_type: planar
   vector_operation: magnitude
 - monitor_names:
-  - 173.0 THz Field
-  monitor_type: planar
-  vector_operation: magnitude
-- monitor_names:
   - 174.0 THz Field
-  monitor_type: planar
-  vector_operation: magnitude
-- monitor_names:
-  - 175.0 THz Field
   monitor_type: planar
   vector_operation: magnitude
 - monitor_names:
@@ -152,15 +120,7 @@ monitor_list:
   monitor_type: planar
   vector_operation: magnitude
 - monitor_names:
-  - 177.0 THz Field
-  monitor_type: planar
-  vector_operation: magnitude
-- monitor_names:
   - 178.0 THz Field
-  monitor_type: planar
-  vector_operation: magnitude
-- monitor_names:
-  - 179.0 THz Field
   monitor_type: planar
   vector_operation: magnitude
 - monitor_names:
@@ -168,15 +128,7 @@ monitor_list:
   monitor_type: planar
   vector_operation: magnitude
 - monitor_names:
-  - 181.0 THz Field
-  monitor_type: planar
-  vector_operation: magnitude
-- monitor_names:
   - 182.0 THz Field
-  monitor_type: planar
-  vector_operation: magnitude
-- monitor_names:
-  - 183.0 THz Field
   monitor_type: planar
   vector_operation: magnitude
 - monitor_names:
@@ -184,15 +136,7 @@ monitor_list:
   monitor_type: planar
   vector_operation: magnitude
 - monitor_names:
-  - 185.0 THz Field
-  monitor_type: planar
-  vector_operation: magnitude
-- monitor_names:
   - 186.0 THz Field
-  monitor_type: planar
-  vector_operation: magnitude
-- monitor_names:
-  - 187.0 THz Field
   monitor_type: planar
   vector_operation: magnitude
 - monitor_names:
@@ -200,15 +144,7 @@ monitor_list:
   monitor_type: planar
   vector_operation: magnitude
 - monitor_names:
-  - 189.0 THz Field
-  monitor_type: planar
-  vector_operation: magnitude
-- monitor_names:
   - 190.0 THz Field
-  monitor_type: planar
-  vector_operation: magnitude
-- monitor_names:
-  - 191.0 THz Field
   monitor_type: planar
   vector_operation: magnitude
 - monitor_names:
@@ -216,15 +152,7 @@ monitor_list:
   monitor_type: planar
   vector_operation: magnitude
 - monitor_names:
-  - 193.0 THz Field
-  monitor_type: planar
-  vector_operation: magnitude
-- monitor_names:
   - 194.0 THz Field
-  monitor_type: planar
-  vector_operation: magnitude
-- monitor_names:
-  - 195.0 THz Field
   monitor_type: planar
   vector_operation: magnitude
 - monitor_names:
@@ -232,15 +160,7 @@ monitor_list:
   monitor_type: planar
   vector_operation: magnitude
 - monitor_names:
-  - 197.0 THz Field
-  monitor_type: planar
-  vector_operation: magnitude
-- monitor_names:
   - 198.0 THz Field
-  monitor_type: planar
-  vector_operation: magnitude
-- monitor_names:
-  - 199.0 THz Field
   monitor_type: planar
   vector_operation: magnitude
 - monitor_names:
@@ -248,12 +168,32 @@ monitor_list:
   monitor_type: planar
   vector_operation: magnitude
 - monitor_names:
-  - 170.0 THz Field
+  - 160.0 THz Field
   monitor_type: planar
   scalar_operation: phase
   vector_operation: z
 - monitor_names:
-  - 171.0 THz Field
+  - 162.0 THz Field
+  monitor_type: planar
+  scalar_operation: phase
+  vector_operation: z
+- monitor_names:
+  - 164.0 THz Field
+  monitor_type: planar
+  scalar_operation: phase
+  vector_operation: z
+- monitor_names:
+  - 166.0 THz Field
+  monitor_type: planar
+  scalar_operation: phase
+  vector_operation: z
+- monitor_names:
+  - 168.0 THz Field
+  monitor_type: planar
+  scalar_operation: phase
+  vector_operation: z
+- monitor_names:
+  - 170.0 THz Field
   monitor_type: planar
   scalar_operation: phase
   vector_operation: z
@@ -263,17 +203,7 @@ monitor_list:
   scalar_operation: phase
   vector_operation: z
 - monitor_names:
-  - 173.0 THz Field
-  monitor_type: planar
-  scalar_operation: phase
-  vector_operation: z
-- monitor_names:
   - 174.0 THz Field
-  monitor_type: planar
-  scalar_operation: phase
-  vector_operation: z
-- monitor_names:
-  - 175.0 THz Field
   monitor_type: planar
   scalar_operation: phase
   vector_operation: z
@@ -283,17 +213,7 @@ monitor_list:
   scalar_operation: phase
   vector_operation: z
 - monitor_names:
-  - 177.0 THz Field
-  monitor_type: planar
-  scalar_operation: phase
-  vector_operation: z
-- monitor_names:
   - 178.0 THz Field
-  monitor_type: planar
-  scalar_operation: phase
-  vector_operation: z
-- monitor_names:
-  - 179.0 THz Field
   monitor_type: planar
   scalar_operation: phase
   vector_operation: z
@@ -303,17 +223,7 @@ monitor_list:
   scalar_operation: phase
   vector_operation: z
 - monitor_names:
-  - 181.0 THz Field
-  monitor_type: planar
-  scalar_operation: phase
-  vector_operation: z
-- monitor_names:
   - 182.0 THz Field
-  monitor_type: planar
-  scalar_operation: phase
-  vector_operation: z
-- monitor_names:
-  - 183.0 THz Field
   monitor_type: planar
   scalar_operation: phase
   vector_operation: z
@@ -323,17 +233,7 @@ monitor_list:
   scalar_operation: phase
   vector_operation: z
 - monitor_names:
-  - 185.0 THz Field
-  monitor_type: planar
-  scalar_operation: phase
-  vector_operation: z
-- monitor_names:
   - 186.0 THz Field
-  monitor_type: planar
-  scalar_operation: phase
-  vector_operation: z
-- monitor_names:
-  - 187.0 THz Field
   monitor_type: planar
   scalar_operation: phase
   vector_operation: z
@@ -343,17 +243,7 @@ monitor_list:
   scalar_operation: phase
   vector_operation: z
 - monitor_names:
-  - 189.0 THz Field
-  monitor_type: planar
-  scalar_operation: phase
-  vector_operation: z
-- monitor_names:
   - 190.0 THz Field
-  monitor_type: planar
-  scalar_operation: phase
-  vector_operation: z
-- monitor_names:
-  - 191.0 THz Field
   monitor_type: planar
   scalar_operation: phase
   vector_operation: z
@@ -363,17 +253,7 @@ monitor_list:
   scalar_operation: phase
   vector_operation: z
 - monitor_names:
-  - 193.0 THz Field
-  monitor_type: planar
-  scalar_operation: phase
-  vector_operation: z
-- monitor_names:
   - 194.0 THz Field
-  monitor_type: planar
-  scalar_operation: phase
-  vector_operation: z
-- monitor_names:
-  - 195.0 THz Field
   monitor_type: planar
   scalar_operation: phase
   vector_operation: z
@@ -383,17 +263,7 @@ monitor_list:
   scalar_operation: phase
   vector_operation: z
 - monitor_names:
-  - 197.0 THz Field
-  monitor_type: planar
-  scalar_operation: phase
-  vector_operation: z
-- monitor_names:
   - 198.0 THz Field
-  monitor_type: planar
-  scalar_operation: phase
-  vector_operation: z
-- monitor_names:
-  - 199.0 THz Field
   monitor_type: planar
   scalar_operation: phase
   vector_operation: z
@@ -403,97 +273,61 @@ monitor_list:
   scalar_operation: phase
   vector_operation: z
 - monitor_names:
-  - 170.0 THz GVD
+  - 162.0 THz GVD
   monitor_type: scalar
 - monitor_names:
-  - 171.0 THz GVD
+  - 164.0 THz GVD
+  monitor_type: scalar
+- monitor_names:
+  - 166.0 THz GVD
+  monitor_type: scalar
+- monitor_names:
+  - 168.0 THz GVD
+  monitor_type: scalar
+- monitor_names:
+  - 170.0 THz GVD
   monitor_type: scalar
 - monitor_names:
   - 172.0 THz GVD
   monitor_type: scalar
 - monitor_names:
-  - 173.0 THz GVD
-  monitor_type: scalar
-- monitor_names:
   - 174.0 THz GVD
-  monitor_type: scalar
-- monitor_names:
-  - 175.0 THz GVD
   monitor_type: scalar
 - monitor_names:
   - 176.0 THz GVD
   monitor_type: scalar
 - monitor_names:
-  - 177.0 THz GVD
-  monitor_type: scalar
-- monitor_names:
   - 178.0 THz GVD
-  monitor_type: scalar
-- monitor_names:
-  - 179.0 THz GVD
   monitor_type: scalar
 - monitor_names:
   - 180.0 THz GVD
   monitor_type: scalar
 - monitor_names:
-  - 181.0 THz GVD
-  monitor_type: scalar
-- monitor_names:
   - 182.0 THz GVD
-  monitor_type: scalar
-- monitor_names:
-  - 183.0 THz GVD
   monitor_type: scalar
 - monitor_names:
   - 184.0 THz GVD
   monitor_type: scalar
 - monitor_names:
-  - 185.0 THz GVD
-  monitor_type: scalar
-- monitor_names:
   - 186.0 THz GVD
-  monitor_type: scalar
-- monitor_names:
-  - 187.0 THz GVD
   monitor_type: scalar
 - monitor_names:
   - 188.0 THz GVD
   monitor_type: scalar
 - monitor_names:
-  - 189.0 THz GVD
-  monitor_type: scalar
-- monitor_names:
   - 190.0 THz GVD
-  monitor_type: scalar
-- monitor_names:
-  - 191.0 THz GVD
   monitor_type: scalar
 - monitor_names:
   - 192.0 THz GVD
   monitor_type: scalar
 - monitor_names:
-  - 193.0 THz GVD
-  monitor_type: scalar
-- monitor_names:
   - 194.0 THz GVD
-  monitor_type: scalar
-- monitor_names:
-  - 195.0 THz GVD
   monitor_type: scalar
 - monitor_names:
   - 196.0 THz GVD
   monitor_type: scalar
 - monitor_names:
-  - 197.0 THz GVD
-  monitor_type: scalar
-- monitor_names:
   - 198.0 THz GVD
-  monitor_type: scalar
-- monitor_names:
-  - 199.0 THz GVD
-  monitor_type: scalar
-- monitor_names:
-  - 200.0 THz GVD
   monitor_type: scalar
 - monitor_names:
   - Objective

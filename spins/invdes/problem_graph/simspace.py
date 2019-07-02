@@ -280,6 +280,8 @@ def _get_mat_index(index_element: optplan.Material,
             index = material.Si.refractive_index(np.array(wlen))[0]
         elif name in ["Si3N4", "sin", "si3n4", "SiN"]:
             index = material.Si3N4.refractive_index(np.array(wlen))[0]
+        elif name.lower() in ["ta2o5", "tao", "tantalum pentoxide"]:
+            index = material.Ta2O5.refractive_index(np.array(wlen))[0]
         else:
             raise ValueError("No valid material name.")
     else:

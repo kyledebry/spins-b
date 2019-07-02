@@ -12,6 +12,7 @@ import os
 import pickle
 import re
 import numpy as np
+import matplotlib.pyplot as plt
 from typing import Dict, List, Optional, Union
 
 from spins.invdes import parametrization
@@ -339,6 +340,12 @@ class Logger:
         # Increment log_counter.
         self._log_counter += 1
 
+        gvd_arr = []
+        gvd_freq_arr = []
+        wave_vector_arr = []
+        wave_vector_derivative = []
+        wave_vector_freq_arr = []
+
         # Get monitor data.
         monitor_data = {}
         if monitor_list:
@@ -347,7 +354,59 @@ class Logger:
             for mon, mon_val in zip(monitor_list, mon_vals):
                 monitor_data[mon.name] = mon_val
 
-        self._logger.info("Objective: " + str(np.real(monitor_data['Objective'].max())))
+                if "GVD" in mon.name:
+                    gvd_freq_arr.append(float(mon.name[:6]))
+                    gvd_arr.append(np.real(mon_val))
+                elif "Wave Vector" in mon.name:
+                    wave_vector_freq_arr.append(float(mon.name[:6]))
+                    wave_vector_arr.append(np.real(mon_val))
+
+        wave_vector_freq = np.array(wave_vector_freq_arr)
+        wave_vector_derivative = np.gradient(wave_vector_arr, wave_vector_freq)
+        frequency_fsr = 2 * np.pi / 5E-6 / np.abs(wave_vector_derivative)
+        mid_freq = wave_vector_freq_arr[len(wave_vector_freq_arr) // 2]
+        d_int = wave_vector_freq - (mid_freq - frequency_fsr * (wave_vector_freq - mid_freq))
+        k_f = np.array(wave_vector_arr) / wave_vector_freq
+        gvd_np = 1 / (np.pi * np.pi) * np.gradient(wave_vector_derivative, wave_vector_freq)
+
+        if event["state"] in ["optimizing", "start"]:
+            self._logger.info("Objective: " + str(np.real(monitor_data['Objective'].max())))
+
+            if event["state"] is "start":
+                if self._transform_name[-1].isdigit():
+                    title = "GVD Optimization: {}.0".format(int(self._transform_name[-1]) + 1)
+                else:
+                    title = "GVD Optimization: Initial"
+                plt.figure()
+                plt.title(title)
+                plt.xlabel("Frequency (THz)")
+                plt.ylabel("GVD (fs/mm^2)")
+                plt.plot(gvd_freq_arr, gvd_arr)
+                plt.show()
+
+                # plt.figure()
+                # plt.title("GVD Numpy: Initial")
+                # plt.xlabel("Frequency (THz)")
+                # plt.ylabel("GVD (fs/mm^2)")
+                # plt.plot(wave_vector_freq_arr, gvd_np)
+                # plt.show()
+            elif self._transform_name[-1].isdigit():
+                plot_label_major = int(self._transform_name[-1]) + 1
+                plot_label_minor = event["iteration"]
+
+                plt.figure()
+                plt.title("GVD Optimization: {}.{}".format(plot_label_major, plot_label_minor))
+                plt.xlabel("Frequency (THz)")
+                plt.ylabel("GVD (fs/mm^2)")
+                plt.plot(gvd_freq_arr, gvd_arr)
+                plt.show()
+
+                # plt.figure()
+                # plt.title("GVD Numpy: {}.{}".format(plot_label_major, plot_label_minor))
+                # plt.xlabel("Frequency (THz)")
+                # plt.ylabel("GVD (fs/mm^2)")
+                # plt.plot(wave_vector_freq_arr, gvd_np)
+                # plt.show()
 
         # Get workspace parameters.
         parameter_data = {}

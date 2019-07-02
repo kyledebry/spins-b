@@ -29,7 +29,7 @@ from spins.invdes import problem_graph
 from spins.invdes.problem_graph import optplan
 
 # Yee cell grid spacing in nanometers.
-GRID_SPACING = 20
+GRID_SPACING = 40
 # If `True`, perform the simulation in 2D. Else in 3D.
 SIM_2D = True
 # Silicon refractive index to use for 2D simulations. This should be the
@@ -98,7 +98,7 @@ def create_sim_space(gds_fg: str, gds_bg: str) -> optplan.SimulationSpace:
                 extents=[-10000, -110],
             ),
             optplan.GdsMaterialStackLayer(
-                foreground=optplan.Material(mat_name="Si"),
+                foreground=optplan.Material(mat_name="Ta2O5"),
                 background=mat_oxide,
                 gds_layer=[100, 0],
                 extents=[-110, 110],
@@ -111,7 +111,7 @@ def create_sim_space(gds_fg: str, gds_bg: str) -> optplan.SimulationSpace:
         # device layer at z = 0. We apply periodic boundary conditions along
         # the z-axis by setting PML thickness to zero.
         sim_region = optplan.Box3d(
-            center=[0, 0, 0], extents=[6000, 3000, GRID_SPACING])
+            center=[0, 0, 0], extents=[6000, 5000, GRID_SPACING])
         pml_thickness = [10, 10, 10, 10, 0, 0]
     else:
         sim_region = optplan.Box3d(center=[0, 0, 0], extents=[5000, 5000, 2000])
@@ -177,13 +177,16 @@ def finite_difference_second_derivative(f: List[optplan.Function], delta: float,
     return derivative
 
 
-def create_gvd_multiple_difference(k: List[optplan.Function], frequency_step: float) -> List[optplan.Function]:
+def create_gvd_multiple_difference(k: List[optplan.Function], frequency_step: float, ignore_endpoints: bool = False) -> List[optplan.Function]:
     gvd = []
     omega_step = 2 * np.pi * frequency_step
 
     for i in range(len(k)):
         derivative = finite_difference_second_derivative(k, omega_step, i)
         gvd.append(derivative)
+
+    if ignore_endpoints:
+        gvd = gvd[1:-1]
 
     return gvd
 
@@ -193,7 +196,7 @@ def thz_to_nm(thz: Union[int, np.array]):
     wavelength = C / hz
     wavelength_nm = wavelength / NM_TO_M
 
-    return round(wavelength_nm)
+    return wavelength_nm
 
 
 def create_objective(sim_space: optplan.SimulationSpace
@@ -215,12 +218,12 @@ def create_objective(sim_space: optplan.SimulationSpace
         the optimization process.
     """
 
-    path_length = 4400
+    path_length = 5000
 
     # Create the waveguide source at the input.
     wg_source = optplan.WaveguideModeSource(
         center=[-path_length // 2, 0, 0],
-        extents=[GRID_SPACING, 800, 600],
+        extents=[GRID_SPACING, 1000, 600],
         normal=[1, 0, 0],
         mode_num=0,
         power=1.0,
@@ -229,7 +232,7 @@ def create_objective(sim_space: optplan.SimulationSpace
     # Create the region in which to optimize the phase in.
     phase_region = optplan.Region(
         center=[path_length // 2, 0, 0],
-        extents=[GRID_SPACING, 800, 6 * GRID_SPACING],
+        extents=[GRID_SPACING, 500, 6 * GRID_SPACING],
         power=1,
     )
 
@@ -243,7 +246,7 @@ def create_objective(sim_space: optplan.SimulationSpace
     # Create the modal overlap at the output waveguide.
     overlap_out = optplan.WaveguideModeOverlap(
         center=[path_length // 2, 0, 0],
-        extents=[GRID_SPACING, 800, 600],
+        extents=[GRID_SPACING, 1000, 600],
         mode_num=0,
         normal=[1, 0, 0],
         power=1,
@@ -260,8 +263,8 @@ def create_objective(sim_space: optplan.SimulationSpace
     yaml_spec = {'monitor_list': []}
 
     # Set the wavelengths, wavelength differences, and goal GVDs to simulate and optimize
-    optimization_frequencies, frequency_step = np.linspace(start=170, stop=200, num=31, retstep=True)
-    optimization_gvd = [5, 5, 5, 2, 0] + [-1] * (len(optimization_frequencies) - 10) + [0, 2, 5, 5, 5]
+    optimization_frequencies, frequency_step = np.linspace(start=160, stop=200, num=21, retstep=True)
+    optimization_gvd = [-50] * len(optimization_frequencies)
 
     # Calculate the GVD at each wavelength
     for frequency in optimization_frequencies:
@@ -282,10 +285,12 @@ def create_objective(sim_space: optplan.SimulationSpace
             epsilon=epsilon,
         )
 
-        # Create phase objectives and monitors
+        # Create wave vector objectives and monitors
         phase = optplan.PhaseAbsolute(simulation=sim, region=phase_region, path=phase_path)
-        k = phase / path_length
+        k = phase / (path_length * NM_TO_M)     # Path length is in nanometers
+
         monitor_list.append(optplan.SimpleMonitor(name="{} THz Wave Vector".format(frequency), function=k))
+        # yaml_scalar_monitors.append('{} THz Wave Vector'.format(frequency))
         k_list.append(k)
 
         # Add the field to the monitor list
@@ -316,20 +321,23 @@ def create_objective(sim_space: optplan.SimulationSpace
         yaml_power_monitors.append('{} THz Power Out'.format(frequency))
 
     # Calculate and store GVD functions and add to monitor list
-    gvd_list = create_gvd_multiple_difference(k_list, frequency_step)
-    for gvd, frequency in zip(gvd_list, optimization_frequencies):
+    gvd_list = create_gvd_multiple_difference(k_list, frequency_step, ignore_endpoints=True)
+    for gvd, frequency in zip(gvd_list, optimization_frequencies[1:-1]):
         monitor_list.append(optplan.SimpleMonitor(name="{} THz GVD".format(frequency), function=gvd))
         yaml_scalar_monitors.append('{} THz GVD'.format(frequency))
 
     # Spins minimizes the objective function, so to make `power` maximized,
     # we minimize `1 - power`.
-    obj = 0
+    power_obj = 0
     for power in power_objs:
-        obj += (1 - power) ** 2
+        power_obj += (1 - power) ** 2
 
     # Minimize distance between simulated GVD and goal GVD at each wavelength
+    gvd_obj = 0
     for goal, gvd in zip(optimization_gvd, gvd_list):
-        obj += 0.2 * optplan.abs(goal - gvd) ** 2
+        gvd_obj += 1E-3 * optplan.abs(goal - gvd) ** 2
+
+    obj = power_obj + gvd_obj
 
     monitor_list.append(optplan.SimpleMonitor(name="Objective", function=obj))
     yaml_scalar_monitors.append('Objective')
@@ -358,7 +366,7 @@ def create_objective(sim_space: optplan.SimulationSpace
     with open('monitor_spec_dynamic.yml', 'w') as monitor_spec_dynamic:
         yaml.dump(yaml_spec, monitor_spec_dynamic, default_flow_style=False)
 
-    return obj, monitor_list
+    return obj, power_obj, monitor_list
 
 
 def create_transformations(
@@ -368,6 +376,8 @@ def create_transformations(
         cont_iters: int,
         num_stages: int = 3,
         min_feature: float = 100,
+        power_obj: optplan.Function = None,
+        power_iters = 1
 ) -> List[optplan.Transformation]:
     """Creates a list of transformations for the device optimization.
 
@@ -403,6 +413,23 @@ def create_transformations(
         simulation_space=sim_space,
         init_method=optplan.UniformInitializer(min_val=0.6, max_val=0.9),
     )
+
+    if power_obj:
+        trans_list.append(
+            optplan.Transformation(
+                name="power_opt",
+                parametrization=param,
+                transformation=optplan.ScipyOptimizerTransformation(
+                    optimizer="L-BFGS-B",
+                    objective=power_obj,
+                    monitor_lists=optplan.ScipyOptimizerMonitorList(
+                        callback_monitors=monitors,
+                        start_monitors=monitors,
+                        end_monitors=monitors),
+                    optimization_options=optplan.ScipyOptimizerOptions(
+                        maxiter=power_iters),
+                ),
+            ))
 
     iters = max(cont_iters // num_stages, 1)
     for stage in range(num_stages):

@@ -742,7 +742,7 @@ class PhaseAverageFunction(problem.OptimizationFunction):
 
         # Get the phase along the specified path (as in, from the source to the region) to get a
         # phase difference and eliminate the arbitrary +/- 2pi*n added to the phase
-        phase_path_vector = np.angle(input_vals[0][np.nonzero(self.path)])
+        phase_path_vector = np.angle(input_vals[0][np.nonzero(self.path)])[2:]
         # Unwrap phase along path and break into xyz components
         phase_path_components = _get_vector_components(phase_path_vector)
         phase_path = [np.unwrap(phase_path_components[i]) for i in range(3)]
@@ -751,6 +751,8 @@ class PhaseAverageFunction(problem.OptimizationFunction):
         center_phase = [phase_path[i][-1] for i in range(3)]
         # We want the difference in phase from the source
         beginning_phase = [phase_path[i][0] for i in range(3)]
+
+        phase_along_path = [center_phase[i] - beginning_phase[i] for i in range(3)]
 
         # Update the phases of the optimization region to reference the phase difference along the path
         mid = len(region_only_phase[0]) // 2
@@ -780,6 +782,8 @@ class PhaseAverageFunction(problem.OptimizationFunction):
 
         # Update cache
         self.current_phase_avg = phase_avg
+
+        phase_avg_diff = phase_avg - phase_along_path[2]
 
         # print("{}: {}".format(self.wavelength, phase_avg))
 
