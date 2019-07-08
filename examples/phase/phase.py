@@ -111,8 +111,8 @@ def create_sim_space(gds_fg: str, gds_bg: str) -> optplan.SimulationSpace:
         # device layer at z = 0. We apply periodic boundary conditions along
         # the z-axis by setting PML thickness to zero.
         sim_region = optplan.Box3d(
-            center=[0, 0, 0], extents=[6000, 5000, GRID_SPACING])
-        pml_thickness = [10, 10, 10, 10, 0, 0]
+            center=[0, 0, 0], extents=[6000, 4000, GRID_SPACING])
+        pml_thickness = [10, 20, 10, 10, 0, 0]
     else:
         sim_region = optplan.Box3d(center=[0, 0, 0], extents=[5000, 5000, 2000])
         pml_thickness = [10, 10, 10, 10, 10, 10]
@@ -156,8 +156,8 @@ def create_gvd_objective(phase: List[optplan.PhaseAbsolute], d_wavelength) -> op
 def finite_difference_second_derivative(f: List[optplan.Function], delta: float, i: int) -> optplan.Function:
     """Approximates the second derivative of f at the i-th point using finite difference coefficients.
 
-    See https://en.wikipedia.org/wiki/Finite_difference_coefficient#Arbitrary_stencil_points
-    Code from http://web.media.mit.edu/~crtaylor/calculator.html"""
+    See https://en.wikipedia.org/wiki/Finite_difference_coefficient
+    Code generated with http://web.media.mit.edu/~crtaylor/calculator.html"""
     assert len(f) >= 5
     values_after = len(f) - 1 - i
 
@@ -218,12 +218,12 @@ def create_objective(sim_space: optplan.SimulationSpace
         the optimization process.
     """
 
-    path_length = 5000
+    path_length = 4500
 
     # Create the waveguide source at the input.
     wg_source = optplan.WaveguideModeSource(
         center=[-path_length // 2, 0, 0],
-        extents=[GRID_SPACING, 1000, 600],
+        extents=[GRID_SPACING, 2000, 600],
         normal=[1, 0, 0],
         mode_num=0,
         power=1.0,
@@ -232,21 +232,21 @@ def create_objective(sim_space: optplan.SimulationSpace
     # Create the region in which to optimize the phase in.
     phase_region = optplan.Region(
         center=[path_length // 2, 0, 0],
-        extents=[GRID_SPACING, 500, 6 * GRID_SPACING],
+        extents=[GRID_SPACING, 1000, 6 * GRID_SPACING],
         power=1,
     )
 
     # Create a path from the source to the output to track the phase over.
     phase_path = optplan.Region(
         center=[0, 0, 0],
-        extents=[path_length, GRID_SPACING, GRID_SPACING],
+        extents=[max(path_length, GRID_SPACING), GRID_SPACING, GRID_SPACING],
         power=1
     )
 
     # Create the modal overlap at the output waveguide.
     overlap_out = optplan.WaveguideModeOverlap(
         center=[path_length // 2, 0, 0],
-        extents=[GRID_SPACING, 1000, 600],
+        extents=[GRID_SPACING, 2000, 600],
         mode_num=0,
         normal=[1, 0, 0],
         power=1,
@@ -263,8 +263,8 @@ def create_objective(sim_space: optplan.SimulationSpace
     yaml_spec = {'monitor_list': []}
 
     # Set the wavelengths, wavelength differences, and goal GVDs to simulate and optimize
-    optimization_frequencies, frequency_step = np.linspace(start=160, stop=200, num=21, retstep=True)
-    optimization_gvd = [-50] * len(optimization_frequencies)
+    optimization_frequencies, frequency_step = np.linspace(start=160, stop=200, num=41, retstep=True)
+    optimization_gvd = [-10] * len(optimization_frequencies)
 
     # Calculate the GVD at each wavelength
     for frequency in optimization_frequencies:
@@ -287,7 +287,7 @@ def create_objective(sim_space: optplan.SimulationSpace
 
         # Create wave vector objectives and monitors
         phase = optplan.PhaseAbsolute(simulation=sim, region=phase_region, path=phase_path)
-        k = phase / (path_length * NM_TO_M)     # Path length is in nanometers
+        k = phase / (max(path_length, GRID_SPACING) * NM_TO_M)     # Path length is in nanometers
 
         monitor_list.append(optplan.SimpleMonitor(name="{} THz Wave Vector".format(frequency), function=k))
         # yaml_scalar_monitors.append('{} THz Wave Vector'.format(frequency))
@@ -330,12 +330,12 @@ def create_objective(sim_space: optplan.SimulationSpace
     # we minimize `1 - power`.
     power_obj = 0
     for power in power_objs:
-        power_obj += (1 - power) ** 2
+        power_obj += 1E-1 * (1 - power) ** 2
 
     # Minimize distance between simulated GVD and goal GVD at each wavelength
     gvd_obj = 0
     for goal, gvd in zip(optimization_gvd, gvd_list):
-        gvd_obj += 1E-3 * optplan.abs(goal - gvd) ** 2
+        gvd_obj += 1E-2 * optplan.abs(goal - gvd) ** 2
 
     obj = power_obj + gvd_obj
 
@@ -377,7 +377,8 @@ def create_transformations(
         num_stages: int = 3,
         min_feature: float = 100,
         power_obj: optplan.Function = None,
-        power_iters = 1
+        power_iters = 6,
+        power_stages = 3
 ) -> List[optplan.Transformation]:
     """Creates a list of transformations for the device optimization.
 
@@ -411,25 +412,52 @@ def create_transformations(
         # control points on the order of `min_feature / GRID_SPACING`.
         undersample=3.5 * min_feature / GRID_SPACING,
         simulation_space=sim_space,
-        init_method=optplan.UniformInitializer(min_val=0.6, max_val=0.9),
+        init_method=optplan.WaveguideInitializer3(lower_min=0, lower_max=0, upper_min=1, upper_max=1,
+                                                  extent_frac_x=1.1, extent_frac_y=.25,
+                                                  center_frac_x=0.5, center_frac_y=0.5),
+        # init_method=optplan.UniformInitializer(min_val=0, max_val=0.5)
     )
 
     if power_obj:
-        trans_list.append(
-            optplan.Transformation(
-                name="power_opt",
-                parametrization=param,
-                transformation=optplan.ScipyOptimizerTransformation(
-                    optimizer="L-BFGS-B",
-                    objective=power_obj,
-                    monitor_lists=optplan.ScipyOptimizerMonitorList(
-                        callback_monitors=monitors,
-                        start_monitors=monitors,
-                        end_monitors=monitors),
-                    optimization_options=optplan.ScipyOptimizerOptions(
-                        maxiter=power_iters),
-                ),
-            ))
+        iters = max(power_iters // power_stages, 1)
+        for stage in range(power_stages):
+            trans_list.append(
+                optplan.Transformation(
+                    name="power_opt{}".format(stage),
+                    parametrization=param,
+                    transformation=optplan.ScipyOptimizerTransformation(
+                        optimizer="L-BFGS-B",
+                        objective=power_obj,
+                        monitor_lists=optplan.ScipyOptimizerMonitorList(
+                            callback_monitors=monitors,
+                            start_monitors=monitors,
+                            end_monitors=monitors),
+                        optimization_options=optplan.ScipyOptimizerOptions(
+                            maxiter=iters),
+                    ),
+                ))
+
+            if stage < power_stages - 1:
+                # Make the structure more discrete.
+                trans_list.append(
+                    optplan.Transformation(
+                        name="sigmoid_change_power{}".format(stage),
+                        parametrization=param,
+                        # The larger the sigmoid strength value, the more "discrete"
+                        # structure will be.
+                        transformation=optplan.CubicParamSigmoidStrength(
+                            value=4 * (stage + 1)),
+                    ))
+
+    # trans_list.append(
+    #     optplan.Transformation(
+    #         name="sigmoid_change_reset",
+    #         parametrization=param,
+    #         # The larger the sigmoid strength value, the more "discrete"
+    #         # structure will be.
+    #         transformation=optplan.CubicParamSigmoidStrength(
+    #             value=16),
+    #     ))
 
     iters = max(cont_iters // num_stages, 1)
     for stage in range(num_stages):

@@ -1,6 +1,7 @@
 """Defines schema for parametrizations."""
 from schematics import types
 
+from spins import fdfd_tools
 from spins.invdes.problem_graph import optplan
 from spins.invdes.problem_graph import schema_utils
 
@@ -38,6 +39,83 @@ class NormalInitializer(Initializer):
     type = schema_utils.polymorphic_model_type("initializer.normal")
     mean = types.FloatType()
     std = types.FloatType()
+
+
+@optplan.register_node_type()
+class WaveguideInitializer(Initializer):
+    """Initializes parametrization using with a rectangular epsilon shape.
+
+    The two levels of the step function can optionally have uniformly random
+    initialization.
+
+    Attributes:
+        lower_min: minimum value of the lower (background) permittivity
+        lower_max: maximum value of the lower (background) permittivity
+        upper_min: minimum value of the upper (waveguide) permittivity
+        upper_max: maximum value of the upper (waveguide) permittivity
+        region: optplan.Region object specifying the upper permittivity (waveguide) region
+        sim_space: simulation object to use to generate the waveguide region
+    """
+    type = schema_utils.polymorphic_model_type("initializer.waveguide")
+    lower_min = types.FloatType()
+    lower_max = types.FloatType()
+    upper_min = types.FloatType()
+    upper_max = types.FloatType()
+    center = optplan.vec3d()
+    extents = optplan.vec3d()
+    edge_coords = types.ListType(types.ListType(types.IntType))
+
+
+@optplan.register_node_type()
+class WaveguideInitializer2(Initializer):
+    """Initializes parametrization using with a rectangular epsilon shape.
+
+    The two levels of the step function can optionally have uniformly random
+    initialization.
+
+    Attributes:
+        lower_min: minimum value of the lower (background) permittivity
+        lower_max: maximum value of the lower (background) permittivity
+        upper_min: minimum value of the upper (waveguide) permittivity
+        upper_max: maximum value of the upper (waveguide) permittivity
+        region: optplan.Region object specifying the upper permittivity (waveguide) region
+        sim_space: simulation object to use to generate the waveguide region
+    """
+    type = schema_utils.polymorphic_model_type("initializer.waveguide_2")
+    lower_min = types.FloatType()
+    lower_max = types.FloatType()
+    upper_min = types.FloatType()
+    upper_max = types.FloatType()
+    sim_space = optplan.ReferenceType(optplan.SimulationSpace)
+    region = optplan.ReferenceType(optplan.EmRegion)
+
+
+@optplan.register_node_type()
+class WaveguideInitializer3(Initializer):
+    """Initializes parametrization using with a rectangular epsilon shape.
+
+    The two levels of the step function can optionally have uniformly random
+    initialization.
+
+    Attributes:
+        lower_min: minimum value of the lower (background) permittivity
+        lower_max: maximum value of the lower (background) permittivity
+        upper_min: minimum value of the upper (waveguide) permittivity
+        upper_max: maximum value of the upper (waveguide) permittivity
+        extent_frac_x:
+        extent_frac_y:
+        center_frac_x:
+        center_frac_y:
+    """
+    type = schema_utils.polymorphic_model_type("initializer.waveguide_3")
+    lower_min = types.FloatType()
+    lower_max = types.FloatType()
+    upper_min = types.FloatType()
+    upper_max = types.FloatType()
+    extent_frac_x = types.FloatType()
+    extent_frac_y = types.FloatType()
+    center_frac_x = types.FloatType()
+    center_frac_y = types.FloatType()
 
 
 @optplan.register_node_type()

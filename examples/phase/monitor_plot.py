@@ -12,7 +12,7 @@ def plot():
     # Define filenames.
 
     # `save_folder` is the full path to the directory containing the Pickle (.pkl) log files from the optimization.
-    save_folder = os.path.join(os.getcwd(), 'GVD_test_broadband')
+    save_folder = os.path.join(os.getcwd(), 'GVD_test_wg')
     spec_folder = os.getcwd()
 
     # Load the logged monitor data and monitor spec information.
@@ -21,7 +21,7 @@ def plot():
     df = log_tools.create_log_data_frame(log_tools.load_all_logs(save_folder))
 
     # `monitor_spec_filename` is the full path to the monitor spec yml file.
-    monitor_spec_filename = os.path.join(spec_folder, "monitor_spec_dynamic.yml")
+    monitor_spec_filename = os.path.join(spec_folder, "monitor_spec_epsilon.yml")
 
     # `monitor_descriptions` now contains the information from the monitor_spec.yml file. It follows the format of
     # the schema found in `log_tools.monitor_spec`.

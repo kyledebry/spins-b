@@ -17,14 +17,17 @@ def _copyfiles(src_folder, dest_folder, filenames):
 
 
 def test_phase(tmpdir):
-    folder = os.path.join(tmpdir, 'GVD_test_broadband')
-    _copyfiles(CUR_DIR, folder, ["sim_fg_gvd.gds", "sim_bg_gvd.gds"])
+    folder = os.path.join(tmpdir, 'GVD_test_wg')
+    _copyfiles(CUR_DIR, folder, ["sim_fg_wg.gds", "sim_bg_wg.gds"])
 
-    sim_space = phase.create_sim_space("sim_fg_gvd.gds", "sim_bg_gvd.gds")
+    sim_space = phase.create_sim_space("sim_fg_wg.gds", "sim_bg_wg.gds")
     obj, power_obj, monitors = phase.create_objective(sim_space)
     trans_list = phase.create_transformations(
-        obj, monitors, sim_space, cont_iters=12, min_feature=100, num_stages=3, power_obj=power_obj)
+        obj, monitors, sim_space, cont_iters=12, min_feature=100, num_stages=3)
+        # power_obj=power_obj, power_iters=6, power_stages=2)
     plan = optplan.OptimizationPlan(transformations=trans_list)
+    # with open("plan_dump.json", "w") as plan_dump_file:
+    #     plan_dump_file.write(optplan.dumps(plan))
     problem_graph.run_plan(plan, folder)
 
 

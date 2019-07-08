@@ -546,10 +546,10 @@ class Region:
     def __init__(self,
                  params: optplan.Region,
                  work: workspace.Workspace = None) -> None:
-        """Creates a new phase objective.
+        """Creates a new region.
 
         Args:
-            params: phase optimization region parameters.
+            params: region parameters.
             work: Unused.
         """
         self._params = params

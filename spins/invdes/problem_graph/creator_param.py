@@ -3,9 +3,10 @@ from typing import List, Union
 import numpy as np
 from scipy.ndimage import filters
 
+from spins import fdfd_tools
 from spins.invdes import parametrization
 from spins.invdes import problem
-from spins.invdes.problem_graph import optplan
+from spins.invdes.problem_graph import optplan, grid_utils
 from spins.invdes.problem_graph import workspace
 
 
@@ -30,6 +31,74 @@ class NormalDistribution:
 
     def __call__(self, shape: List[int]) -> np.ndarray:
         return np.random.normal(self._params.mean, self._params.std, shape)
+
+
+@optplan.register_node(optplan.WaveguideInitializer)
+class WaveguideDistribution:
+
+    def __init__(self, params: optplan.WaveguideInitializer,
+               work: workspace.Workspace) -> None:
+        self._params = params
+        self._work = work
+
+    def __call__(self, shape: List[int]) -> np.ndarray:
+        region_slice = grid_utils.create_region_slices(
+            self._params.edge_coords, self._params.center,
+            self._params.extents)
+        region = np.zeros(shape)
+        region[tuple(region_slice)] = 1
+
+        outside_region = np.ones_like(self._region) - self._region
+        lower_random = np.random.uniform(self._params.lower_min, self._params.lower_max, shape)
+        upper_random = np.random.uniform(self._params.upper_min, self._params.upper_max, shape)
+        return self._region * upper_random + outside_region * lower_random
+
+
+class WaveguideDistribution2:
+    def __init__(self, region: np.ndarray, lower_min: float, lower_max: float, upper_min: float, upper_max: float):
+        self._region = region
+        self._inverse_region = 1 - region
+        self._lower_min = lower_min
+        self._lower_max = lower_max
+        self._upper_min = upper_min
+        self._upper_max = upper_max
+
+    def __call__(self, shape: List[int]) -> np.ndarray:
+        lower_random = np.random.uniform(self._lower_min, self._lower_max, shape)
+        upper_random = np.random.uniform(self._upper_min, self._upper_max, shape)
+        return self._region * upper_random + self._inverse_region * lower_random
+
+
+@optplan.register_node(optplan.WaveguideInitializer2)
+def create_waveguide_distribution_2(params: optplan.WaveguideInitializer2,
+                            work: workspace.Workspace):
+    fake_wavelength = 1500
+    sim_space = work.get_object(params.sim_space)
+    region_3d = work.get_object(params.region)(sim_space, fake_wavelength)
+    region = region_3d[0]
+    return WaveguideDistribution2(region=region, lower_min=params.lower_min, lower_max=params.lower_max,
+                                  upper_min=params.upper_min, upper_max=params.upper_max)
+
+
+@optplan.register_node(optplan.WaveguideInitializer3)
+class WaveguideDistribution3:
+    def __init__(self, params: optplan.NormalInitializer,
+                 work: workspace.Workspace) -> None:
+        self._params = params
+
+    def __call__(self, shape: List[int]) -> np.ndarray:
+        lower_random = np.random.uniform(self._params.lower_min, self._params.lower_max, shape)
+        upper_random = np.random.uniform(self._params.upper_min, self._params.upper_max, shape)
+        center_x = self._params.center_frac_x * shape[0]
+        center_y = self._params.center_frac_y * shape[1]
+        start_x = max(round(center_x - self._params.extent_frac_x * shape[0] / 2), 0)
+        end_x = min(round(center_x + self._params.extent_frac_x * shape[0] / 2), shape[0] - 1)
+        start_y = max(round(center_y - self._params.extent_frac_y * shape[1] / 2), 0)
+        end_y = min(round(center_y + self._params.extent_frac_y * shape[1] / 2), shape[1] - 1)
+        upper_slice = (slice(start_x, end_x), slice(start_y, end_y))
+        distribution = lower_random
+        distribution[upper_slice] = upper_random[upper_slice]
+        return distribution
 
 
 @optplan.register_node(optplan.PixelParametrization)
