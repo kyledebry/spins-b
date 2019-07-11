@@ -361,13 +361,15 @@ class Logger:
                     wave_vector_freq_arr.append(float(mon.name[:6]))
                     wave_vector_arr.append(np.real(mon_val))
 
-        wave_vector_freq = np.array(wave_vector_freq_arr)
-        wave_vector_derivative = np.gradient(wave_vector_arr, wave_vector_freq)
-        frequency_fsr = 2 * np.pi / 5E-6 / np.abs(wave_vector_derivative)
-        mid_freq = wave_vector_freq_arr[len(wave_vector_freq_arr) // 2]
-        d_int = wave_vector_freq - (mid_freq - frequency_fsr * (wave_vector_freq - mid_freq))
-        k_f = np.array(wave_vector_arr) / wave_vector_freq
-        gvd_np = 1 / (np.pi * np.pi) * np.gradient(wave_vector_derivative, wave_vector_freq)
+        # wave_vector_freq = np.array(wave_vector_freq_arr)
+        # wave_vector_derivative = np.gradient(wave_vector_arr, wave_vector_freq)
+        # frequency_fsr = 2 * np.pi / 5E-6 / np.abs(wave_vector_derivative)
+        # mid_freq = wave_vector_freq_arr[len(wave_vector_freq_arr) // 2]
+        # d_int = wave_vector_freq - (mid_freq - frequency_fsr * (wave_vector_freq - mid_freq))
+        # k_f = np.array(wave_vector_arr) / wave_vector_freq
+        # gvd_np = 1 / (np.pi * np.pi) * np.gradient(wave_vector_derivative, wave_vector_freq)
+        # print(wave_vector_freq_arr)
+        # print(wave_vector_arr)
 
         if event["state"] in ["optimizing", "start"]:
             self._logger.info("Objective: " + str(np.real(monitor_data['Objective'].max())))
@@ -380,7 +382,7 @@ class Logger:
                 plt.figure()
                 plt.title(title)
                 plt.xlabel("Frequency (THz)")
-                plt.ylabel("GVD (fs/mm^2)")
+                plt.ylabel("GVD (fs^2/mm)")
                 plt.plot(gvd_freq_arr, gvd_arr)
                 plt.show()
 
@@ -397,7 +399,7 @@ class Logger:
                 plt.figure()
                 plt.title("GVD Optimization: {}.{}".format(plot_label_major, plot_label_minor))
                 plt.xlabel("Frequency (THz)")
-                plt.ylabel("GVD (fs/mm^2)")
+                plt.ylabel("GVD (fs^2/mm)")
                 plt.plot(gvd_freq_arr, gvd_arr)
                 plt.show()
 

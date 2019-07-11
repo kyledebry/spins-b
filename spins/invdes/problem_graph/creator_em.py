@@ -787,7 +787,8 @@ class PhaseAverageFunction(problem.OptimizationFunction):
 
         # print("{}: {}".format(self.wavelength, phase_avg))
 
-        return phase_avg
+        # Minus sign to correct for phase decreasing as wave propagates due to different sign convention
+        return -phase_avg
 
     def grad(self, input_vals: List[np.ndarray],
              grad_val: np.ndarray) -> List[np.ndarray]:

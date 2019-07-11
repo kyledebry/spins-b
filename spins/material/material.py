@@ -56,13 +56,21 @@ class Air(Material):
 
     @classmethod
     def refractive_index(cls, wavelengths):
-        return (np.ones_like(wavelengths), np.zeros_like(wavelengths))
+        return np.ones_like(wavelengths), np.zeros_like(wavelengths)
 
 
 class SiO2(Material):
 
     @classmethod
     def refractive_index(cls, wavelengths):
+        x = wavelengths * 1e-9
+        n_si_o2 = np.sqrt(1 + 0.6961663 / (1 - np.power(0.0684043e-6 / x, 2)) + 0.4079426 / (
+                    1 - np.power(0.1162414e-6 / x, 2)) + 0.8974794 / (1 - np.power(9.896161e-6 / x, 2)))
+
+        return n_si_o2, cls.refractive_index_discrete(wavelengths)[1]
+
+    @classmethod
+    def refractive_index_discrete(cls, wavelengths):
         # SiO2 refractive index with respect to wavelength (wl, nm)
 
         # SOURCE: Palik, Handbook of Optical Constants of Solids, 1995
@@ -508,9 +516,16 @@ class Si3N4(Material):
     ]
 
     @classmethod
-    def refractive_index(cls, wavelengths):
+    def refractive_index_discrete(cls, wavelengths):
         return interpolate_using_energy(wavelengths, Si3N4.n, Si3N4.k, Si3N4.eV,
                                         Si3N4.eV)
+
+    @classmethod
+    def refractive_index(cls, wavelengths):
+        x = wavelengths * 1e-9  # Convert to meters
+        n_si3_n4 = np.sqrt(
+            1 + 3.0249 / (1 - np.power(0.1353406e-6 / x, 2)) + 40314 / (1 - np.power(1239.842e-6 / x, 2)))
+        return n_si3_n4, cls.refractive_index_discrete(wavelengths)[1]
 
 
 class Ta2O5(Material):
@@ -647,4 +662,13 @@ class Ta2O5(Material):
 
     @classmethod
     def refractive_index(cls, wavelengths):
+        x = wavelengths * 1e-9  # Convert to meters
+        n_ta2_o5 = np.sqrt(
+            1 + (-0.5618e12 * np.power(x, 2)) / (1e12 * np.power(x, 2) + 0.0713) + (2.9899e12 * np.power(x, 2)) / (
+                    1e12 * np.power(x, 2) - 0.0336) + (
+                    0.8828e12 * np.power(x, 2)) / (1e12 * np.power(x, 2) + 0.0549))
+        return n_ta2_o5, cls.refractive_index_discrete(wavelengths)[1]
+
+    @classmethod
+    def refractive_index_discrete(cls, wavelengths):
         return interpolate_using_energy(wavelengths, Ta2O5.n, Ta2O5.k, Ta2O5.eV, Ta2O5.eV)

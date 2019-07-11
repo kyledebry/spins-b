@@ -40,6 +40,7 @@ SI_3D_INDEX = 3.45
 
 WIDTH = 2500  # Width from source to output
 NM_TO_M = 1e-9  # Conversion from nm to m
+THZ_TO_HZ = 1e12  # Conversion from THz to Hz
 S2M_TO_FS2MM = 1e27  # Conversion from s^2/m to fs^2/mm for GVD
 C = 299792458  # Speed of light (m/s)
 
@@ -111,7 +112,7 @@ def create_sim_space(gds_fg: str, gds_bg: str) -> optplan.SimulationSpace:
         # device layer at z = 0. We apply periodic boundary conditions along
         # the z-axis by setting PML thickness to zero.
         sim_region = optplan.Box3d(
-            center=[0, 0, 0], extents=[6000, 4000, GRID_SPACING])
+            center=[0, 0, 0], extents=[6000, 5000, GRID_SPACING])
         pml_thickness = [10, 20, 10, 10, 0, 0]
     else:
         sim_region = optplan.Box3d(center=[0, 0, 0], extents=[5000, 5000, 2000])
@@ -177,12 +178,12 @@ def finite_difference_second_derivative(f: List[optplan.Function], delta: float,
     return derivative
 
 
-def create_gvd_multiple_difference(k: List[optplan.Function], frequency_step: float, ignore_endpoints: bool = False) -> List[optplan.Function]:
+def create_gvd_multiple_difference(k: List[optplan.Function], frequency_step: float = None, ignore_endpoints: bool = False) -> List[optplan.Function]:
     gvd = []
     omega_step = 2 * np.pi * frequency_step
 
     for i in range(len(k)):
-        derivative = finite_difference_second_derivative(k, omega_step, i)
+        derivative = finite_difference_second_derivative(k, omega_step, i) * S2M_TO_FS2MM
         gvd.append(derivative)
 
     if ignore_endpoints:
@@ -197,6 +198,14 @@ def thz_to_nm(thz: Union[int, np.array]):
     wavelength_nm = wavelength / NM_TO_M
 
     return wavelength_nm
+
+
+def nm_to_thz(nm):
+    m = nm * NM_TO_M
+    hz = C / m
+    thz = hz * 1e-12
+
+    return thz
 
 
 def create_objective(sim_space: optplan.SimulationSpace
@@ -223,7 +232,7 @@ def create_objective(sim_space: optplan.SimulationSpace
     # Create the waveguide source at the input.
     wg_source = optplan.WaveguideModeSource(
         center=[-path_length // 2, 0, 0],
-        extents=[GRID_SPACING, 2000, 600],
+        extents=[GRID_SPACING, 2500, 600],
         normal=[1, 0, 0],
         mode_num=0,
         power=1.0,
@@ -232,7 +241,7 @@ def create_objective(sim_space: optplan.SimulationSpace
     # Create the region in which to optimize the phase in.
     phase_region = optplan.Region(
         center=[path_length // 2, 0, 0],
-        extents=[GRID_SPACING, 1000, 6 * GRID_SPACING],
+        extents=[GRID_SPACING, 500, 6 * GRID_SPACING],
         power=1,
     )
 
@@ -246,7 +255,7 @@ def create_objective(sim_space: optplan.SimulationSpace
     # Create the modal overlap at the output waveguide.
     overlap_out = optplan.WaveguideModeOverlap(
         center=[path_length // 2, 0, 0],
-        extents=[GRID_SPACING, 2000, 600],
+        extents=[GRID_SPACING, 2500, 600],
         mode_num=0,
         normal=[1, 0, 0],
         power=1,
@@ -260,10 +269,12 @@ def create_objective(sim_space: optplan.SimulationSpace
     yaml_field_monitors = []
     yaml_power_monitors = []
     yaml_scalar_monitors = []
+    yaml_epsilon_monitors = []
     yaml_spec = {'monitor_list': []}
 
     # Set the wavelengths, wavelength differences, and goal GVDs to simulate and optimize
-    optimization_frequencies, frequency_step = np.linspace(start=160, stop=200, num=41, retstep=True)
+    optimization_wavelengths = np.linspace(start=1000, stop=1500, num=26)
+    optimization_frequencies, frequency_step = np.linspace(start=180, stop=200, num=21, retstep=True)
     optimization_gvd = [-10] * len(optimization_frequencies)
 
     # Calculate the GVD at each wavelength
@@ -274,6 +285,11 @@ def create_objective(sim_space: optplan.SimulationSpace
             simulation_space=sim_space,
             wavelength=sim_wavelength,
         )
+        yaml_epsilon_monitors.append('{} THz Epsilon'.format(frequency))
+        monitor_list.append(optplan.FieldMonitor(name='{} THz Epsilon'.format(frequency),
+                                                 function=epsilon,
+                                                 normal=[0, 0, 1],
+                                                 center=[0, 0, 0]))
 
         sim = optplan.FdfdSimulation(
             source=wg_source,
@@ -287,7 +303,7 @@ def create_objective(sim_space: optplan.SimulationSpace
 
         # Create wave vector objectives and monitors
         phase = optplan.PhaseAbsolute(simulation=sim, region=phase_region, path=phase_path)
-        k = phase / (max(path_length, GRID_SPACING) * NM_TO_M)     # Path length is in nanometers
+        k = phase / (path_length * NM_TO_M)     # Path length is in nanometers
 
         monitor_list.append(optplan.SimpleMonitor(name="{} THz Wave Vector".format(frequency), function=k))
         # yaml_scalar_monitors.append('{} THz Wave Vector'.format(frequency))
@@ -321,7 +337,7 @@ def create_objective(sim_space: optplan.SimulationSpace
         yaml_power_monitors.append('{} THz Power Out'.format(frequency))
 
     # Calculate and store GVD functions and add to monitor list
-    gvd_list = create_gvd_multiple_difference(k_list, frequency_step, ignore_endpoints=True)
+    gvd_list = create_gvd_multiple_difference(k_list, frequency_step * THZ_TO_HZ, ignore_endpoints=True)
     for gvd, frequency in zip(gvd_list, optimization_frequencies[1:-1]):
         monitor_list.append(optplan.SimpleMonitor(name="{} THz GVD".format(frequency), function=gvd))
         yaml_scalar_monitors.append('{} THz GVD'.format(frequency))
@@ -335,17 +351,17 @@ def create_objective(sim_space: optplan.SimulationSpace
     # Minimize distance between simulated GVD and goal GVD at each wavelength
     gvd_obj = 0
     for goal, gvd in zip(optimization_gvd, gvd_list):
-        gvd_obj += 1E-2 * optplan.abs(goal - gvd) ** 2
+        gvd_obj += 1E-3 * optplan.abs(goal - gvd) ** 2
 
     obj = power_obj + gvd_obj
 
     monitor_list.append(optplan.SimpleMonitor(name="Objective", function=obj))
     yaml_scalar_monitors.append('Objective')
 
-    for monitor in yaml_power_monitors:
-        yaml_spec['monitor_list'].append({'monitor_names':    [monitor],
-                                          'monitor_type':     'scalar',
-                                          'scalar_operation': 'magnitude_squared'})
+    # for monitor in yaml_power_monitors:
+    #     yaml_spec['monitor_list'].append({'monitor_names':    [monitor],
+    #                                       'monitor_type':     'scalar',
+    #                                       'scalar_operation': 'magnitude_squared'})
     for monitor in yaml_field_monitors:
         yaml_spec['monitor_list'].append({'monitor_names':    [monitor],
                                           'monitor_type':     'planar',
@@ -355,9 +371,13 @@ def create_objective(sim_space: optplan.SimulationSpace
                                           'monitor_type':     'planar',
                                           'vector_operation': 'z',
                                           'scalar_operation': 'phase'})
-    for monitor in yaml_scalar_monitors:
-        yaml_spec['monitor_list'].append({'monitor_names': [monitor],
-                                          'monitor_type':  'scalar'})
+    # for monitor in yaml_scalar_monitors:
+    #     yaml_spec['monitor_list'].append({'monitor_names': [monitor],
+    #                                       'monitor_type':  'scalar'})
+    # for monitor in yaml_epsilon_monitors:
+    #     yaml_spec['monitor_list'].append({'monitor_names':    [monitor],
+    #                                       'monitor_type':     'planar',
+    #                                       'vector_operation': 'z'})
 
     yaml_spec['monitor_list'].append({'monitor_names':    ['Epsilon'],
                                       'monitor_type':     'planar',
@@ -412,10 +432,10 @@ def create_transformations(
         # control points on the order of `min_feature / GRID_SPACING`.
         undersample=3.5 * min_feature / GRID_SPACING,
         simulation_space=sim_space,
-        init_method=optplan.WaveguideInitializer3(lower_min=0, lower_max=0, upper_min=1, upper_max=1,
-                                                  extent_frac_x=1.1, extent_frac_y=.25,
+        init_method=optplan.WaveguideInitializer3(lower_min=0, lower_max=0.1, upper_min=0.9, upper_max=1,
+                                                  extent_frac_x=1.1, extent_frac_y=1/6,
                                                   center_frac_x=0.5, center_frac_y=0.5),
-        # init_method=optplan.UniformInitializer(min_val=0, max_val=0.5)
+        # init_method=optplan.UniformInitializer(min_val=1, max_val=1)
     )
 
     if power_obj:
