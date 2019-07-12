@@ -252,6 +252,15 @@ def create_objective(sim_space: optplan.SimulationSpace
         power=1
     )
 
+    # Create the modal overlap at the input waveguide
+    overlap_in = optplan.WaveguideModeOverlap(
+        center=[-path_length // 2, 0, 0],
+        extents=[GRID_SPACING, 2500, 600],
+        mode_num=0,
+        normal=[1, 0, 0],
+        power=1,
+    )
+
     # Create the modal overlap at the output waveguide.
     overlap_out = optplan.WaveguideModeOverlap(
         center=[path_length // 2, 0, 0],
@@ -273,8 +282,7 @@ def create_objective(sim_space: optplan.SimulationSpace
     yaml_spec = {'monitor_list': []}
 
     # Set the wavelengths, wavelength differences, and goal GVDs to simulate and optimize
-    optimization_wavelengths = np.linspace(start=1000, stop=1500, num=26)
-    optimization_frequencies, frequency_step = np.linspace(start=180, stop=200, num=21, retstep=True)
+    optimization_frequencies, frequency_step = np.linspace(start=180, stop=220, num=21, retstep=True)
     optimization_gvd = [-10] * len(optimization_frequencies)
 
     # Calculate the GVD at each wavelength
@@ -302,7 +310,7 @@ def create_objective(sim_space: optplan.SimulationSpace
         )
 
         # Create wave vector objectives and monitors
-        phase = optplan.PhaseAbsolute(simulation=sim, region=phase_region, path=phase_path)
+        phase = optplan.WaveguidePhase(simulation=sim, overlap_in=overlap_in, overlap_out=overlap_out, path=phase_path)
         k = phase / (path_length * NM_TO_M)     # Path length is in nanometers
 
         monitor_list.append(optplan.SimpleMonitor(name="{} THz Wave Vector".format(frequency), function=k))
@@ -371,9 +379,9 @@ def create_objective(sim_space: optplan.SimulationSpace
                                           'monitor_type':     'planar',
                                           'vector_operation': 'z',
                                           'scalar_operation': 'phase'})
-    # for monitor in yaml_scalar_monitors:
-    #     yaml_spec['monitor_list'].append({'monitor_names': [monitor],
-    #                                       'monitor_type':  'scalar'})
+    for monitor in yaml_scalar_monitors:
+        yaml_spec['monitor_list'].append({'monitor_names': [monitor],
+                                          'monitor_type':  'scalar'})
     # for monitor in yaml_epsilon_monitors:
     #     yaml_spec['monitor_list'].append({'monitor_names':    [monitor],
     #                                       'monitor_type':     'planar',

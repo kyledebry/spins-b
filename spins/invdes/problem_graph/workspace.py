@@ -368,8 +368,8 @@ class Logger:
         # d_int = wave_vector_freq - (mid_freq - frequency_fsr * (wave_vector_freq - mid_freq))
         # k_f = np.array(wave_vector_arr) / wave_vector_freq
         # gvd_np = 1 / (np.pi * np.pi) * np.gradient(wave_vector_derivative, wave_vector_freq)
-        # print(wave_vector_freq_arr)
-        # print(wave_vector_arr)
+        print(wave_vector_freq_arr)
+        print(wave_vector_arr)
 
         if event["state"] in ["optimizing", "start"]:
             self._logger.info("Objective: " + str(np.real(monitor_data['Objective'].max())))

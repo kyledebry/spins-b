@@ -1,3 +1,4 @@
+import math
 from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
@@ -696,6 +697,122 @@ def _get_vector_components(field):
     return [x, y, z]
 
 
+class WaveguidePhaseFunction(problem.OptimizationFunction):
+    """Represents an optimization function for the phase of the field in a waveguide mode."""
+
+    def __init__(self, input_function: problem.OptimizationFunction,
+                 overlap_in: np.array, overlap_out: np.array, path: np.array, wavelength):
+        """Constructs the objective.
+
+        Args:
+            input_function: Input objectives (typically a simulation).
+            overlap: WaveguideModeOverlap of the mode of interest
+            path: path from the source along which to take the phase difference
+        """
+        super().__init__(input_function)
+
+        self._input = input_function
+        self.overlap_in = overlap_in
+        self.overlap_out = overlap_out
+        self.path = path
+        self.wavelength = wavelength
+        self.overlap_in_function = OverlapFunction(input_function, overlap_in)
+        self.overlap_out_function = OverlapFunction(input_function, overlap_out)
+
+    def eval(self, input_vals: List[np.ndarray]) -> np.ndarray:
+        """Returns the output of the function.
+
+        Args:
+            input_vals: List of the input field values.
+
+        Returns:
+            Phase difference between the output waveguide mode and the beginning of the path.
+        """
+
+        # TODO(Kyle DeBry): these are just for debugging; remove
+        overlap_out_vec = _get_vector_components(self.overlap_out[np.nonzero(self.overlap_out)])
+        overlap_out_vec = _get_vector_components(self.overlap_out[np.nonzero(self.overlap_out)])
+
+        # Get phase of overlap with waveguide modes
+        waveguide_in_phase = np.angle(self.overlap_in_function.eval(input_vals))
+        waveguide_out_raw_phase = np.angle(self.overlap_out_function.eval(input_vals))
+
+        # Get cumulative phase difference along the path from the source to the waveguide mode location
+        path_vals = input_vals[0][np.nonzero(self.path)]
+        path_component_vals = [_get_vector_components(path_vals)[i][0:] for i in range(3)]
+        path_raw_phase = np.angle(path_vals)
+        path_raw_phase_components = _get_vector_components(path_raw_phase)
+        path_phase_components = [np.unwrap(path_raw_phase_components[i][0:]) for i in range(3)]
+        path_phase_weighted = np.sum([path_phase_components[i] * np.abs(path_component_vals)[i] for i in range(3)],
+                                     axis=0)
+        path_phase_norm = path_phase_weighted / np.sum(np.abs(path_component_vals), axis=0)
+
+        # Patch together the phase along the path and the waveguide mode phases to get total phase difference
+        # Note: tau = 2*pi is the one true circle constant
+        waveguide_in_phase_jump = path_phase_norm[0] - waveguide_in_phase
+        path_phase_norm -= waveguide_in_phase_jump
+        waveguide_out_phase_jump = waveguide_out_raw_phase - path_phase_norm[-1]
+        out_jump_num_tau = round(waveguide_out_phase_jump / math.tau)
+        waveguide_out_phase = waveguide_out_raw_phase - out_jump_num_tau * math.tau
+
+        return waveguide_out_phase - waveguide_in_phase
+
+    def grad(self, input_vals: List[np.ndarray],
+             grad_val: np.ndarray) -> List[np.ndarray]:
+        """Returns the gradient of the function.
+
+        Args:
+            input_vals: List of the input E field values.
+            grad_val: Gradient of the input to the phase function (for chain rule).
+
+        Returns:
+            gradient.
+        """
+
+        # This is a composite function. Outer level is phase(overlap_result), overlap_result is a
+        # function of the input values, and the input values have their own derivative
+        # Final result is d(phase(overlap_result(input_vals(x)))) / dx
+        #   = d(phase) / d(overlap_result) * d(overlap_result) / d(input_vals) * d(input_vals) / dx
+
+        # Gradient of input value (last term)
+        input_grad = grad_val
+
+        # Get the overlap values (middle term)
+        overlap_result = self.overlap_out_function.eval(input_vals)
+        overlap_grad = self.overlap_out_function.grad(input_vals, np.array(1))[0]
+
+        # Compute d(phase)/d(overlap_result) (first term)
+        overlap_re = np.real(overlap_result)
+        overlap_im = np.imag(overlap_result)
+        overlap_abs = np.abs(overlap_result)
+
+        # Should be divided by overlap_abs^2, but that causes singularity at 0. Removing one factor of
+        # overlap_abs prevents the grad for blowing up for small field values. However, leaving it in
+        # here for now because overlap is usually not super small, so it might be OK, as opposed to
+        # the field value in one grid cell which is often very small.
+        phase_grad_re = - overlap_im / overlap_abs ** 2
+        phase_grad_im = overlap_re / overlap_abs ** 2
+        phase_grad = (phase_grad_re + 1j*phase_grad_im)
+
+        # Chain rule
+        grad = phase_grad * overlap_grad * input_grad
+
+        return [grad]
+
+
+@optplan.register_node(optplan.WaveguidePhase)
+def create_waveguide_phase_function(params: optplan.ProblemGraphNode,
+                                    work: workspace.Workspace):
+    sim_space = work.get_object(params.simulation.simulation_space)
+    wavelength = params.simulation.wavelength
+    overlap_in = fdfd_tools.vec(work.get_object(params.overlap_in)(sim_space, wavelength))
+    overlap_out = fdfd_tools.vec(work.get_object(params.overlap_out)(sim_space, wavelength))
+    path = fdfd_tools.vec(work.get_object(params.path)(sim_space, wavelength))
+    return WaveguidePhaseFunction(
+        input_function=work.get_object(params.simulation), overlap_in=overlap_in, overlap_out=overlap_out,
+        path=path, wavelength=wavelength)
+
+
 class PhaseAverageFunction(problem.OptimizationFunction):
     """Represents an optimization function for the average difference in phase of the field."""
 
@@ -724,7 +841,7 @@ class PhaseAverageFunction(problem.OptimizationFunction):
             input_vals: List of the input values.
 
         Returns:
-            Vector product of overlap and the input.
+            Phase difference between the output region and the beginning of the path.
         """
 
         # Check cache
@@ -742,10 +859,10 @@ class PhaseAverageFunction(problem.OptimizationFunction):
 
         # Get the phase along the specified path (as in, from the source to the region) to get a
         # phase difference and eliminate the arbitrary +/- 2pi*n added to the phase
-        phase_path_vector = np.angle(input_vals[0][np.nonzero(self.path)])[2:]
+        phase_path_vector = np.angle(input_vals[0][np.nonzero(self.path)])
         # Unwrap phase along path and break into xyz components
         phase_path_components = _get_vector_components(phase_path_vector)
-        phase_path = [np.unwrap(phase_path_components[i]) for i in range(3)]
+        phase_path = [np.unwrap(phase_path_components[i][2:]) for i in range(3)]
 
         # The last cell of the phase path is the center cell of region we are optimizing
         center_phase = [phase_path[i][-1] for i in range(3)]
@@ -792,7 +909,7 @@ class PhaseAverageFunction(problem.OptimizationFunction):
 
     def grad(self, input_vals: List[np.ndarray],
              grad_val: np.ndarray) -> List[np.ndarray]:
-        """Returns the gradient of the function.
+        """Returns the 'gradient' of the function.
 
         Args:
             input_vals: List of the input values.
@@ -802,6 +919,9 @@ class PhaseAverageFunction(problem.OptimizationFunction):
             gradient.
         """
 
+        # Note that the arg function is not complex-differentiable anywhere, so we make a
+        # pseudo-gradient for it that will still move the gradient descent algorithm in the
+        # right direction.
         re = np.real(input_vals[0])
         im = np.imag(input_vals[0])
 

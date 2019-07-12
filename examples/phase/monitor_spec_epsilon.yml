@@ -4,6 +4,6 @@ monitor_list:
   monitor_type: planar
   vector_operation: z
 - monitor_names:
-  - 180.0 THz Field
+  - 190.0 THz Field
   monitor_type: planar
   vector_operation: magnitude
