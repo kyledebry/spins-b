@@ -457,6 +457,24 @@ class WaveguidePhase(optplan.Function):
 
 
 @optplan.register_node_type()
+class WaveguideMultiPhase(optplan.Function):
+    """Defines a function that returns the phase difference between a waveguide mode
+    and the source.
+
+    Attributes:
+        type: Must be "function.phase_absolute".
+        simulation: Simulation from which electric fields are obtained.
+        overlap: Overlap type to use.
+        path: path from the source to the measurement waveguide mode region
+    """
+    type = schema_utils.polymorphic_model_type("function.waveguide_multi_phase")
+    simulation = optplan.ReferenceType(optplan.Function)
+    overlap_in = optplan.ReferenceType(optplan.EmOverlap)
+    overlap_out = optplan.ReferenceType(optplan.EmOverlap)
+    path = optplan.ReferenceType(optplan.EmRegion)
+
+
+@optplan.register_node_type()
 class PhaseAbsolute(optplan.Function):
     """Defines a function that returns the absolute phase of the field.
 

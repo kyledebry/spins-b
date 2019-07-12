@@ -542,40 +542,6 @@ class KerrOverlap:
         return np.multiply(overlap, self._params.power)
 
 
-@optplan.register_node(optplan.Region)
-class Region:
-    def __init__(self,
-                 params: optplan.Region,
-                 work: workspace.Workspace = None) -> None:
-        """Creates a new region.
-
-        Args:
-            params: region parameters.
-            work: Unused.
-        """
-        self._params = params
-
-    def __call__(self, simspace: SimulationSpace, wlen: float,
-                 **kwargs) -> fdfd_tools.VecField:
-        space_inst = simspace(wlen)
-        region_slice = grid_utils.create_region_slices(
-            simspace.edge_coords, self._params.center,
-            self._params.extents)
-        eps = space_inst.eps_bg.grids
-
-        region = [None] * 3
-        for i in range(3):
-            region[i] = np.zeros_like(eps[0], dtype=complex)
-            region_i = region[i]
-            ones_i = np.ones_like(eps, dtype=complex)[i]
-            ones_i_slice = ones_i[tuple(region_slice)]
-            region_i[tuple(region_slice)] = ones_i_slice
-
-            region[i] = region_i
-
-        return np.multiply(region, self._params.power)
-
-
 # TODO(logansu): This function appears just to be an inner product.
 # Why is this a separate function right now?
 class OverlapFunction(problem.OptimizationFunction):
@@ -695,6 +661,172 @@ def _get_vector_components(field):
     z = field[2*third:]
 
     return [x, y, z]
+
+
+@optplan.register_node(optplan.Region)
+class Region:
+    def __init__(self,
+                 params: optplan.Region,
+                 work: workspace.Workspace = None) -> None:
+        """Creates a new region.
+
+        Args:
+            params: region parameters.
+            work: Unused.
+        """
+        self._params = params
+
+    def __call__(self, simspace: SimulationSpace, wlen: float,
+                 **kwargs) -> fdfd_tools.VecField:
+        space_inst = simspace(wlen)
+        region_slice = grid_utils.create_region_slices(
+            simspace.edge_coords, self._params.center,
+            self._params.extents)
+        eps = space_inst.eps_bg.grids
+
+        region = [np.zeros_like(eps[0])] * 3
+
+        for i in range(3):
+            region[i][tuple(region_slice)] = np.ones_like(eps[0])[tuple(region_slice)]
+
+        return np.multiply(region, self._params.power)
+
+
+class WaveguideMultiPhaseFunction(problem.OptimizationFunction):
+    """Represents an optimization function for the phase of the field in a waveguide mode."""
+
+    def __init__(self, input_function: problem.OptimizationFunction, overlap_model: np.array, slice_model,
+                 slice_in, slice_out, path: np.array, wavelength, shape, num_phase_checks=10):
+        """Constructs the objective.
+
+        Args:
+            input_function: Input objectives (typically a simulation).
+            overlap: WaveguideModeOverlap of the mode of interest
+            path: path from the source along which to take the phase difference
+        """
+        super().__init__(input_function)
+
+        self._input = input_function
+        self.overlap_model = overlap_model
+        self.path = path
+        self.wavelength = wavelength
+        self.num_phase_checks = num_phase_checks
+
+        self.model_unvec = fdfd_tools.unvec(overlap_model, shape)
+        self.model_region = [self.model_unvec[i][tuple(slice_model)] for i in range(3)]
+        self.overlap_in_unvec = np.zeros_like(self.model_unvec)
+        self.overlap_out_unvec = np.zeros_like(self.model_unvec)
+        for i in range(3):
+            self.overlap_in_unvec[i][tuple(slice_in)] = self.model_region[i]
+            self.overlap_out_unvec[i][tuple(slice_out)] = self.model_region[i]
+
+        self.overlap_in = fdfd_tools.vec(self.overlap_in_unvec)
+        self.overlap_out = fdfd_tools.vec(self.overlap_out_unvec)
+
+        self.overlap_in_function = OverlapFunction(input_function, self.overlap_in)
+        self.overlap_out_function = OverlapFunction(input_function, self.overlap_out)
+
+
+    def eval(self, input_vals: List[np.ndarray]) -> np.ndarray:
+        """Returns the output of the function.
+
+        Args:
+            input_vals: List of the input field values.
+
+        Returns:
+            Phase difference between the output waveguide mode and the beginning of the path.
+        """
+
+        # TODO(Kyle DeBry): these are just for debugging; remove
+        overlap_in_vec = _get_vector_components(self.overlap_in[np.nonzero(self.overlap_in)])
+        overlap_out_vec = _get_vector_components(self.overlap_out[np.nonzero(self.overlap_out)])
+
+        # Get phase of overlap with waveguide modes
+        waveguide_in_phase = np.angle(self.overlap_in_function.eval(input_vals))
+        waveguide_out_raw_phase = np.angle(self.overlap_out_function.eval(input_vals))
+
+        # Get cumulative phase difference along the path from the source to the waveguide mode location
+        path_vals = input_vals[0][np.nonzero(self.path)]
+        path_component_vals = [_get_vector_components(path_vals)[i][0:] for i in range(3)]
+        path_raw_phase = np.angle(path_vals)
+        path_raw_phase_components = _get_vector_components(path_raw_phase)
+        path_phase_components = [np.unwrap(path_raw_phase_components[i][0:]) for i in range(3)]
+        path_phase_weighted = np.sum([path_phase_components[i] * np.abs(path_component_vals)[i] for i in range(3)],
+                                     axis=0)
+        path_phase_norm = path_phase_weighted / np.sum(np.abs(path_component_vals), axis=0)
+
+        # Patch together the phase along the path and the waveguide mode phases to get total phase difference
+        # Note: tau = 2*pi is the one true circle constant
+        waveguide_in_phase_jump = path_phase_norm[0] - waveguide_in_phase
+        path_phase_norm -= waveguide_in_phase_jump
+        waveguide_out_phase_jump = waveguide_out_raw_phase - path_phase_norm[-1]
+        out_jump_num_tau = round(waveguide_out_phase_jump / math.tau)
+        waveguide_out_phase = waveguide_out_raw_phase - out_jump_num_tau * math.tau
+
+        return waveguide_out_phase - waveguide_in_phase
+
+    def grad(self, input_vals: List[np.ndarray],
+             grad_val: np.ndarray) -> List[np.ndarray]:
+        """Returns the gradient of the function.
+
+        Args:
+            input_vals: List of the input E field values.
+            grad_val: Gradient of the input to the phase function (for chain rule).
+
+        Returns:
+            gradient.
+        """
+
+        # This is a composite function. Outer level is phase(overlap_result), overlap_result is a
+        # function of the input values, and the input values have their own derivative
+        # Final result is d(phase(overlap_result(input_vals(x)))) / dx
+        #   = d(phase) / d(overlap_result) * d(overlap_result) / d(input_vals) * d(input_vals) / dx
+
+        # Gradient of input value (last term)
+        input_grad = grad_val
+
+        # Get the overlap values (middle term)
+        overlap_result = self.overlap_out_function.eval(input_vals)
+        overlap_grad = self.overlap_out_function.grad(input_vals, np.array(1))[0]
+
+        # Compute d(phase)/d(overlap_result) (first term)
+        overlap_re = np.real(overlap_result)
+        overlap_im = np.imag(overlap_result)
+        overlap_abs = np.abs(overlap_result)
+
+        # Should be divided by overlap_abs^2, but that causes singularity at 0. Removing one factor of
+        # overlap_abs prevents the grad for blowing up for small field values. However, leaving it in
+        # here for now because overlap is usually not super small, so it might be OK, as opposed to
+        # the field value in one grid cell which is often very small.
+        phase_grad_re = - overlap_im / overlap_abs ** 2
+        phase_grad_im = overlap_re / overlap_abs ** 2
+        phase_grad = (phase_grad_re + 1j*phase_grad_im)
+
+        # Chain rule
+        grad = phase_grad * overlap_grad * input_grad
+
+        return [grad]
+
+
+@optplan.register_node(optplan.WaveguideMultiPhase)
+def create_waveguide_multi_phase_function(params: optplan.ProblemGraphNode,
+                                    work: workspace.Workspace):
+    sim_space = work.get_object(params.simulation.simulation_space)
+    wavelength = params.simulation.wavelength
+    overlap_in = fdfd_tools.vec(work.get_object(params.overlap_in)(sim_space, wavelength))
+    path = fdfd_tools.vec(work.get_object(params.path)(sim_space, wavelength))
+
+    slice_in = grid_utils.create_region_slices(
+        sim_space.edge_coords, params.overlap_in.center,
+        params.overlap_in.extents)
+    slice_out = grid_utils.create_region_slices(
+        sim_space.edge_coords, params.overlap_out.center,
+        params.overlap_out.extents)
+    shape = sim_space.dims
+
+    return WaveguideMultiPhaseFunction(
+        input_function=work.get_object(params.simulation), overlap_model=overlap_in, slice_model=slice_in,
+        slice_in=slice_in, slice_out=slice_out, path=path, wavelength=wavelength, shape=shape)
 
 
 class WaveguidePhaseFunction(problem.OptimizationFunction):

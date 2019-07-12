@@ -1,19 +1,4 @@
-"""Optimizes a Kerr effect process occurring in the center of the device.
-
-This example shows how to optimize a device to create nonlinear optical effects
-by maximizing the field intensity in a region of the device.
-This is shown diagrmatically below:
-
-        __________
-       |          |
-    ___| +------+ |___
- in ___  | Kerr |  ___ out
-       | +------+ |
-       |__________|
-
-By changing the `SIM_2D` global variable, the simulation can be done in either
-2D or 3D. 2D simulations are performed on the CPU whereas 3D simulations require
-using the GPU-based Maxwell electromagnetic solver.
+"""Work in progress example of GVD optimization of a waveguide.
 
 Note that to run the 3D optimization, the 3D solver must be setup and running
 already.
@@ -178,7 +163,8 @@ def finite_difference_second_derivative(f: List[optplan.Function], delta: float,
     return derivative
 
 
-def create_gvd_multiple_difference(k: List[optplan.Function], frequency_step: float = None, ignore_endpoints: bool = False) -> List[optplan.Function]:
+def create_gvd_multiple_difference(k: List[optplan.Function], frequency_step: float = None,
+                                   ignore_endpoints: bool = False) -> List[optplan.Function]:
     gvd = []
     omega_step = 2 * np.pi * frequency_step
 
@@ -282,8 +268,14 @@ def create_objective(sim_space: optplan.SimulationSpace
     yaml_spec = {'monitor_list': []}
 
     # Set the wavelengths, wavelength differences, and goal GVDs to simulate and optimize
-    optimization_frequencies, frequency_step = np.linspace(start=180, stop=220, num=21, retstep=True)
+    optimization_frequencies, frequency_step = np.linspace(start=180, stop=200, num=21, retstep=True)
     optimization_gvd = [-10] * len(optimization_frequencies)
+    optimization_k = [-7582177.430361505, -7627855.556268587, -7673542.528409609, -7719238.33983371, -7764943.04611466,
+                      -7810656.729944016, -7856379.501338911, -7902111.403732418, -7947852.583454758,
+                      -7993603.2438077545, -8039363.399966509, -8085133.245033728, -8130912.862031934,
+                      -8176702.312889603, -8222501.69053594, -8268311.020366522, -8314130.3153699655,
+                      -8359959.583925647, -8405798.895171404, -8451648.218919015, -8497507.71612791]
+    optimization_k[len(optimization_k) // 2] += 10000
 
     # Calculate the GVD at each wavelength
     for frequency in optimization_frequencies:
@@ -311,7 +303,7 @@ def create_objective(sim_space: optplan.SimulationSpace
 
         # Create wave vector objectives and monitors
         phase = optplan.WaveguidePhase(simulation=sim, overlap_in=overlap_in, overlap_out=overlap_out, path=phase_path)
-        k = phase / (path_length * NM_TO_M)     # Path length is in nanometers
+        k = phase / (path_length * NM_TO_M)  # Path length is in nanometers
 
         monitor_list.append(optplan.SimpleMonitor(name="{} THz Wave Vector".format(frequency), function=k))
         # yaml_scalar_monitors.append('{} THz Wave Vector'.format(frequency))
@@ -357,11 +349,15 @@ def create_objective(sim_space: optplan.SimulationSpace
         power_obj += 1E-1 * (1 - power) ** 2
 
     # Minimize distance between simulated GVD and goal GVD at each wavelength
-    gvd_obj = 0
-    for goal, gvd in zip(optimization_gvd, gvd_list):
-        gvd_obj += 1E-3 * optplan.abs(goal - gvd) ** 2
+    # gvd_obj = 0
+    # for goal, gvd in zip(optimization_gvd, gvd_list):
+    #     gvd_obj += 1E-3 * optplan.abs(goal - gvd) ** 2
 
-    obj = power_obj + gvd_obj
+    k_obj = 0
+    for goal, k in zip(optimization_k, k_list):
+        k_obj += 1E-7 * optplan.abs(goal - k) ** 2
+
+    obj = power_obj + k_obj
 
     monitor_list.append(optplan.SimpleMonitor(name="Objective", function=obj))
     yaml_scalar_monitors.append('Objective')
@@ -405,8 +401,8 @@ def create_transformations(
         num_stages: int = 3,
         min_feature: float = 100,
         power_obj: optplan.Function = None,
-        power_iters = 6,
-        power_stages = 3
+        power_iters=6,
+        power_stages=3
 ) -> List[optplan.Transformation]:
     """Creates a list of transformations for the device optimization.
 
@@ -440,9 +436,9 @@ def create_transformations(
         # control points on the order of `min_feature / GRID_SPACING`.
         undersample=3.5 * min_feature / GRID_SPACING,
         simulation_space=sim_space,
-        init_method=optplan.WaveguideInitializer3(lower_min=0, lower_max=0.1, upper_min=0.9, upper_max=1,
-                                                  extent_frac_x=1.1, extent_frac_y=1/6,
-                                                  center_frac_x=0.5, center_frac_y=0.5),
+        init_method=optplan.WaveguideInitializer3(lower_min=0, lower_max=.2, upper_min=.8, upper_max=1,
+                                                  extent_frac_x=1, extent_frac_y=1/2,
+                                                  center_frac_x=1/2, center_frac_y=0.2),
         # init_method=optplan.UniformInitializer(min_val=1, max_val=1)
     )
 

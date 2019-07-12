@@ -92,9 +92,9 @@ class WaveguideDistribution3:
         center_x = self._params.center_frac_x * shape[0]
         center_y = self._params.center_frac_y * shape[1]
         start_x = max(round(center_x - self._params.extent_frac_x * shape[0] / 2), 0)
-        end_x = min(round(center_x + self._params.extent_frac_x * shape[0] / 2), shape[0] - 1)
+        end_x = min(round(center_x + self._params.extent_frac_x * shape[0] / 2), shape[0])
         start_y = max(round(center_y - self._params.extent_frac_y * shape[1] / 2), 0)
-        end_y = min(round(center_y + self._params.extent_frac_y * shape[1] / 2), shape[1] - 1)
+        end_y = min(round(center_y + self._params.extent_frac_y * shape[1] / 2), shape[1])
         upper_slice = (slice(start_x, end_x), slice(start_y, end_y))
         distribution = lower_random
         distribution[upper_slice] = upper_random[upper_slice]

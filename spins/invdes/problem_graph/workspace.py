@@ -386,12 +386,14 @@ class Logger:
                 plt.plot(gvd_freq_arr, gvd_arr)
                 plt.show()
 
-                # plt.figure()
-                # plt.title("GVD Numpy: Initial")
-                # plt.xlabel("Frequency (THz)")
-                # plt.ylabel("GVD (fs/mm^2)")
-                # plt.plot(wave_vector_freq_arr, gvd_np)
-                # plt.show()
+                wavelength = 299792458 / (np.array(wave_vector_freq_arr) * 1E12)
+
+                plt.figure()
+                plt.title("k/2pi * vacuum wavelength: Initial")
+                plt.xlabel("Frequency (THz)")
+                plt.ylabel("k/2pi * lambda")
+                plt.plot(wave_vector_freq_arr, np.array(wave_vector_arr) * wavelength / (2 * np.pi))
+                plt.show()
             elif self._transform_name[-1].isdigit():
                 plot_label_major = int(self._transform_name[-1]) + 1
                 plot_label_minor = event["iteration"]
@@ -403,12 +405,14 @@ class Logger:
                 plt.plot(gvd_freq_arr, gvd_arr)
                 plt.show()
 
-                # plt.figure()
-                # plt.title("GVD Numpy: {}.{}".format(plot_label_major, plot_label_minor))
-                # plt.xlabel("Frequency (THz)")
-                # plt.ylabel("GVD (fs/mm^2)")
-                # plt.plot(wave_vector_freq_arr, gvd_np)
-                # plt.show()
+                wavelength = 299792458 / (np.array(wave_vector_freq_arr) * 1E12)
+
+                plt.figure()
+                plt.title("k/2pi * vacuum wavelength: {}.{}".format(plot_label_major, plot_label_minor))
+                plt.xlabel("Frequency (THz)")
+                plt.ylabel("k/2pi * lambda")
+                plt.plot(wave_vector_freq_arr, np.array(wave_vector_arr) * wavelength / (2 * np.pi))
+                plt.show()
 
         # Get workspace parameters.
         parameter_data = {}
