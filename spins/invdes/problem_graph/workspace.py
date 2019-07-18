@@ -20,6 +20,7 @@ from spins.invdes import problem
 from spins.invdes.problem import graph_executor
 from spins.invdes.problem_graph import optplan
 from spins.invdes.problem_graph import workspace
+from spins.invdes.problem_graph import log_tools
 
 # Special node to denote the structure variable.
 VARIABLE_NODE = "__variable"
@@ -247,7 +248,7 @@ def _set_parameters(work: workspace.Workspace,
             work.get_object(set_parameter.parametrization))
 
         if set_parameter.inverse:
-            parameter.set_parameter_value(function_value**-1)
+            parameter.set_parameter_value(function_value ** -1)
         else:
             parameter.set_parameter_value(function_value)
 
@@ -313,8 +314,8 @@ class Logger:
             parametrization_data[name] = obj.serialize()
 
         data = {
-            "time": str(datetime.now()),
-            "parameters": parameter_data,
+            "time":             str(datetime.now()),
+            "parameters":       parameter_data,
             "parametrizations": parametrization_data,
         }
 
@@ -371,6 +372,11 @@ class Logger:
         print(wave_vector_freq_arr)
         print(wave_vector_arr)
 
+        waveguide_k = -np.array(
+            [7525490.948438734, 7615650.306678591, 7705826.377978483, 7796019.117530407, 7886228.524264564,
+             7976455.239596077, 8066699.91541423, 8156962.99235593, 8247244.553439956, 8337544.55833482,
+             8427863.391750852])
+
         if event["state"] in ["optimizing", "start"]:
             self._logger.info("Objective: " + str(np.real(monitor_data['Objective'].max())))
 
@@ -389,10 +395,24 @@ class Logger:
                 wavelength = 299792458 / (np.array(wave_vector_freq_arr) * 1E12)
 
                 plt.figure()
-                plt.title("k/2pi * vacuum wavelength: Initial")
+                if self._transform_name[-1].isdigit():
+                    plt.title("k/2pi * vacuum wavelength: {}.0".format(int(self._transform_name[-1]) + 1))
+                else:
+                    plt.title("k/2pi * vacuum wavelength: Initial")
                 plt.xlabel("Frequency (THz)")
                 plt.ylabel("k/2pi * lambda")
                 plt.plot(wave_vector_freq_arr, np.array(wave_vector_arr) * wavelength / (2 * np.pi))
+                plt.show()
+
+                plt.figure()
+                if self._transform_name[-1].isdigit():
+                    plt.title(
+                        "Wavevector difference from straight waveguide: {}.0".format(int(self._transform_name[-1]) + 1))
+                else:
+                    plt.title("k/2pi * vacuum wavelength: Initial")
+                plt.xlabel("Frequency (THz)")
+                plt.ylabel("k - k_waveguide [1/m]")
+                plt.plot(wave_vector_freq_arr, np.array(wave_vector_arr) + np.array(waveguide_k))
                 plt.show()
             elif self._transform_name[-1].isdigit():
                 plot_label_major = int(self._transform_name[-1]) + 1
@@ -414,6 +434,14 @@ class Logger:
                 plt.plot(wave_vector_freq_arr, np.array(wave_vector_arr) * wavelength / (2 * np.pi))
                 plt.show()
 
+                plt.figure()
+                plt.title("Wavevector difference from straight waveguide: {}.{}".format(plot_label_major,
+                                                                                        plot_label_minor))
+                plt.xlabel("Frequency (THz)")
+                plt.ylabel("k - k_waveguide [1/m]")
+                plt.plot(wave_vector_freq_arr, np.array(wave_vector_arr) + np.array(waveguide_k))
+                plt.show()
+
         # Get workspace parameters.
         parameter_data = {}
         parameter_list = self._work.get_objects_by_type(optplan.Parameter)
@@ -423,13 +451,13 @@ class Logger:
 
         # Make a log entry.
         data = {
-            "transformation": self._transform_name,
-            "event": event,
-            "time": str(datetime.now()),
+            "transformation":  self._transform_name,
+            "event":           event,
+            "time":            str(datetime.now()),
             "parametrization": param.serialize(),
-            "parameters": parameter_data,
-            "monitor_data": monitor_data,
-            "log_counter": self._log_counter
+            "parameters":      parameter_data,
+            "monitor_data":    monitor_data,
+            "log_counter":     self._log_counter
         }
 
         self._logger.info(
@@ -441,6 +469,14 @@ class Logger:
             self._path, os.path.join("step{}.pkl".format(self._log_counter)))
         with open(file_path, "wb") as handle:
             pickle.dump(data, handle)
+
+        if event["state"] in ["optimizing", "start"]:
+            save_folder = os.path.join(os.getcwd(), 'GVD_test_wg')
+            spec_folder = os.getcwd()
+            df = log_tools.create_log_data_frame(log_tools.load_all_logs(save_folder))
+            monitor_spec_filename = os.path.join(spec_folder, "monitor_spec_epsilon.yml")
+            monitor_descriptions = log_tools.load_from_yml(monitor_spec_filename)
+            log_tools.plot_monitor_data(df, monitor_descriptions, None)
 
 
 def get_latest_log_step(folder: str) -> int:

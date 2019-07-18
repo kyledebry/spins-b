@@ -119,6 +119,33 @@ class WaveguideInitializer3(Initializer):
 
 
 @optplan.register_node_type()
+class GradientInitializer(Initializer):
+    """Initializes parametrization using with a rectangular epsilon shape.
+
+    The two levels of the step function can optionally have uniformly random
+    initialization.
+
+    Attributes:
+        lower_min: minimum value of the lower (background) permittivity
+        lower_max: maximum value of the lower (background) permittivity
+        upper_min: minimum value of the upper (waveguide) permittivity
+        upper_max: maximum value of the upper (waveguide) permittivity
+        extent_frac_x:
+        extent_frac_y:
+        center_frac_x:
+        center_frac_y:
+    """
+    type = schema_utils.polymorphic_model_type("initializer.gradient")
+    random = types.FloatType()
+    min = types.FloatType()
+    max = types.FloatType()
+    extent_frac_x = types.FloatType()
+    extent_frac_y = types.FloatType()
+    center_frac_x = types.FloatType()
+    center_frac_y = types.FloatType()
+
+
+@optplan.register_node_type()
 class PixelParametrization(optplan.Parametrization):
     """Defines a `DirectParam`.
 

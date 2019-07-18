@@ -23,7 +23,7 @@ def test_phase(tmpdir):
     sim_space = phase.create_sim_space("sim_fg_wg.gds", "sim_bg_wg.gds")
     obj, power_obj, monitors = phase.create_objective(sim_space)
     trans_list = phase.create_transformations(
-        obj, monitors, sim_space, cont_iters=80, min_feature=100, num_stages=4)
+        obj, monitors, sim_space, cont_iters=80, min_feature=75, num_stages=4)
         # power_obj=power_obj, power_iters=6, power_stages=2)
     plan = optplan.OptimizationPlan(transformations=trans_list)
     # with open("plan_dump.json", "w") as plan_dump_file:

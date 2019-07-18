@@ -14,7 +14,7 @@ from spins.invdes import problem_graph
 from spins.invdes.problem_graph import optplan
 
 # Yee cell grid spacing in nanometers.
-GRID_SPACING = 40
+GRID_SPACING = 30
 # If `True`, perform the simulation in 2D. Else in 3D.
 SIM_2D = True
 # Silicon refractive index to use for 2D simulations. This should be the
@@ -97,7 +97,7 @@ def create_sim_space(gds_fg: str, gds_bg: str) -> optplan.SimulationSpace:
         # device layer at z = 0. We apply periodic boundary conditions along
         # the z-axis by setting PML thickness to zero.
         sim_region = optplan.Box3d(
-            center=[0, 0, 0], extents=[6000, 5000, GRID_SPACING])
+            center=[0, 0, 0], extents=[7500, 4000, GRID_SPACING])
         pml_thickness = [10, 20, 10, 10, 0, 0]
     else:
         sim_region = optplan.Box3d(center=[0, 0, 0], extents=[5000, 5000, 2000])
@@ -213,11 +213,11 @@ def create_objective(sim_space: optplan.SimulationSpace
         the optimization process.
     """
 
-    path_length = 4500
+    path_length = 6500
 
     # Create the waveguide source at the input.
     wg_source = optplan.WaveguideModeSource(
-        center=[-path_length // 2, 0, 0],
+        center=[-path_length // 2, -250, 0],
         extents=[GRID_SPACING, 2500, 600],
         normal=[1, 0, 0],
         mode_num=0,
@@ -226,21 +226,21 @@ def create_objective(sim_space: optplan.SimulationSpace
 
     # Create the region in which to optimize the phase in.
     phase_region = optplan.Region(
-        center=[path_length // 2, 0, 0],
+        center=[path_length // 2, -250, 0],
         extents=[GRID_SPACING, 500, 6 * GRID_SPACING],
         power=1,
     )
 
     # Create a path from the source to the output to track the phase over.
     phase_path = optplan.Region(
-        center=[0, 0, 0],
+        center=[0, -250, 0],
         extents=[max(path_length, GRID_SPACING), GRID_SPACING, GRID_SPACING],
         power=1
     )
 
     # Create the modal overlap at the input waveguide
     overlap_in = optplan.WaveguideModeOverlap(
-        center=[-path_length // 2, 0, 0],
+        center=[-path_length // 2, -250, 0],
         extents=[GRID_SPACING, 2500, 600],
         mode_num=0,
         normal=[1, 0, 0],
@@ -249,7 +249,7 @@ def create_objective(sim_space: optplan.SimulationSpace
 
     # Create the modal overlap at the output waveguide.
     overlap_out = optplan.WaveguideModeOverlap(
-        center=[path_length // 2, 0, 0],
+        center=[path_length // 2, -250, 0],
         extents=[GRID_SPACING, 2500, 600],
         mode_num=0,
         normal=[1, 0, 0],
@@ -268,13 +268,11 @@ def create_objective(sim_space: optplan.SimulationSpace
     yaml_spec = {'monitor_list': []}
 
     # Set the wavelengths, wavelength differences, and goal GVDs to simulate and optimize
-    optimization_frequencies, frequency_step = np.linspace(start=180, stop=200, num=21, retstep=True)
+    optimization_frequencies, frequency_step = np.linspace(start=180, stop=200, num=11, retstep=True)
     optimization_gvd = [-10] * len(optimization_frequencies)
-    optimization_k = [-7582177.430361505, -7627855.556268587, -7673542.528409609, -7719238.33983371, -7764943.04611466,
-                      -7810656.729944016, -7856379.501338911, -7902111.403732418, -7947852.583454758,
-                      -7993603.2438077545, -8039363.399966509, -8085133.245033728, -8130912.862031934,
-                      -8176702.312889603, -8222501.69053594, -8268311.020366522, -8314130.3153699655,
-                      -8359959.583925647, -8405798.895171404, -8451648.218919015, -8497507.71612791]
+    optimization_k = [7525490.948438734, 7615650.306678591, 7705826.377978483, 7796019.117530407, 7886228.524264564,
+                      7976455.239596077, 8066699.91541423, 8156962.99235593, 8247244.553439956, 8337544.55833482,
+                      8427863.391750852]
     optimization_k[len(optimization_k) // 2] += 10000
 
     # Calculate the GVD at each wavelength
@@ -303,7 +301,7 @@ def create_objective(sim_space: optplan.SimulationSpace
 
         # Create wave vector objectives and monitors
         phase = optplan.WaveguidePhase(simulation=sim, overlap_in=overlap_in, overlap_out=overlap_out, path=phase_path)
-        k = phase / (path_length * NM_TO_M)  # Path length is in nanometers
+        k = optplan.abs(phase / (path_length * NM_TO_M))  # Path length is in nanometers
 
         monitor_list.append(optplan.SimpleMonitor(name="{} THz Wave Vector".format(frequency), function=k))
         # yaml_scalar_monitors.append('{} THz Wave Vector'.format(frequency))
@@ -346,7 +344,7 @@ def create_objective(sim_space: optplan.SimulationSpace
     # we minimize `1 - power`.
     power_obj = 0
     for power in power_objs:
-        power_obj += 1E-1 * (1 - power) ** 2
+        power_obj += 1 * (1 - power) ** 2
 
     # Minimize distance between simulated GVD and goal GVD at each wavelength
     # gvd_obj = 0
@@ -355,7 +353,7 @@ def create_objective(sim_space: optplan.SimulationSpace
 
     k_obj = 0
     for goal, k in zip(optimization_k, k_list):
-        k_obj += 1E-7 * optplan.abs(goal - k) ** 2
+        k_obj += 1E-8 * optplan.abs(goal - k) ** 2
 
     obj = power_obj + k_obj
 
@@ -436,10 +434,12 @@ def create_transformations(
         # control points on the order of `min_feature / GRID_SPACING`.
         undersample=3.5 * min_feature / GRID_SPACING,
         simulation_space=sim_space,
-        init_method=optplan.WaveguideInitializer3(lower_min=0, lower_max=.2, upper_min=.8, upper_max=1,
-                                                  extent_frac_x=1, extent_frac_y=1/2,
-                                                  center_frac_x=1/2, center_frac_y=0.2),
-        # init_method=optplan.UniformInitializer(min_val=1, max_val=1)
+        # init_method=optplan.WaveguideInitializer3(lower_min=0, lower_max=.4, upper_min=.7, upper_max=1,
+        #                                           extent_frac_x=1, extent_frac_y=1/2,
+        #                                           center_frac_x=1/2, center_frac_y=1/8),
+        init_method=optplan.GradientInitializer(min=0.1, max=1, random=0.3, extent_frac_x=1, extent_frac_y=0.4,
+                                                center_frac_x=0.5, center_frac_y=0.39)
+        # init_method=optplan.UniformInitializer(min_val=0, max_val=0)
     )
 
     if power_obj:
@@ -473,15 +473,15 @@ def create_transformations(
                             value=4 * (stage + 1)),
                     ))
 
-    # trans_list.append(
-    #     optplan.Transformation(
-    #         name="sigmoid_change_reset",
-    #         parametrization=param,
-    #         # The larger the sigmoid strength value, the more "discrete"
-    #         # structure will be.
-    #         transformation=optplan.CubicParamSigmoidStrength(
-    #             value=16),
-    #     ))
+    trans_list.append(
+        optplan.Transformation(
+            name="sigmoid_change_power_init",
+            parametrization=param,
+            # The larger the sigmoid strength value, the more "discrete"
+            # structure will be.
+            transformation=optplan.CubicParamSigmoidStrength(
+                value=8,
+            )))
 
     iters = max(cont_iters // num_stages, 1)
     for stage in range(num_stages):
@@ -510,7 +510,7 @@ def create_transformations(
                     # The larger the sigmoid strength value, the more "discrete"
                     # structure will be.
                     transformation=optplan.CubicParamSigmoidStrength(
-                        value=4 * (stage + 1)),
+                        value=4 * (stage + 3)),
                 ))
     return trans_list
 

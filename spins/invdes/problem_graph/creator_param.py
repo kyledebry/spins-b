@@ -101,6 +101,34 @@ class WaveguideDistribution3:
         return distribution
 
 
+@optplan.register_node(optplan.GradientInitializer)
+class GradientDistribution:
+    def __init__(self, params: optplan.GradientInitializer,
+                 work: workspace.Workspace) -> None:
+        self._params = params
+
+    def __call__(self, shape: List[int]) -> np.ndarray:
+        distribution = np.random.uniform(self._params.min, self._params.min + self._params.random, shape)
+        center_x = self._params.center_frac_x * shape[0]
+        center_y = self._params.center_frac_y * shape[1]
+        start_x = max(round(center_x - self._params.extent_frac_x * shape[0] / 2), 0)
+        end_x = min(round(center_x + self._params.extent_frac_x * shape[0] / 2), shape[0])
+        start_y = max(round(center_y - self._params.extent_frac_y * shape[1] / 2), 0)
+        end_y = min(round(center_y + self._params.extent_frac_y * shape[1] / 2), shape[1])
+        num_steps = end_y - start_y
+        step_size = (self._params.max - self._params.min - self._params.random) / num_steps
+
+        for i in range(num_steps):
+            step_slice = (slice(start_x, end_x), slice(end_y - i - 1, end_y - i))
+            distribution[step_slice] += i * step_size
+
+        upper_slice = (slice(start_x, end_x), slice(0, start_y))
+        upper_dist = distribution[upper_slice] + step_size * num_steps
+        distribution[upper_slice] = upper_dist
+
+        return distribution
+
+
 @optplan.register_node(optplan.PixelParametrization)
 def create_pixel_param(
         params: optplan.PixelParametrization,
