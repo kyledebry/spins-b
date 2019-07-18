@@ -42,6 +42,18 @@ def create_power_comparison(params: optplan.PowerComp, work: workspace.Workspace
         power=params.exp)
 
 
+@optplan.register_node(optplan.IndicatorMinus)
+def create_indicator_minus(params: optplan.IndicatorMinus, work: workspace.Workspace) -> problem.IndicatorMin:
+    indicator_min = problem.IndicatorMin(objective=work.get_object(params.function), beta=params.beta, power=params.power)
+    return indicator_min
+
+
+@optplan.register_node(optplan.IndicatorPlus)
+def create_indicator_plus(params: optplan.IndicatorPlus, work: workspace.Workspace) -> problem.IndicatorPlus:
+    indicator_plus = problem.IndicatorPlus(objective=work.get_object(params.function), alpha=params.alpha, power=params.power)
+    return indicator_plus
+
+
 @optplan.register_node(optplan.Product)
 def create_product(params: optplan.Product,
                    work: workspace.Workspace) -> problem.Product:

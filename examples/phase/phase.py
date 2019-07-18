@@ -97,7 +97,7 @@ def create_sim_space(gds_fg: str, gds_bg: str) -> optplan.SimulationSpace:
         # device layer at z = 0. We apply periodic boundary conditions along
         # the z-axis by setting PML thickness to zero.
         sim_region = optplan.Box3d(
-            center=[0, 0, 0], extents=[7500, 4000, GRID_SPACING])
+            center=[0, 0, 0], extents=[7500, 3000, GRID_SPACING])
         pml_thickness = [10, 20, 10, 10, 0, 0]
     else:
         sim_region = optplan.Box3d(center=[0, 0, 0], extents=[5000, 5000, 2000])
@@ -270,10 +270,9 @@ def create_objective(sim_space: optplan.SimulationSpace
     # Set the wavelengths, wavelength differences, and goal GVDs to simulate and optimize
     optimization_frequencies, frequency_step = np.linspace(start=180, stop=200, num=11, retstep=True)
     optimization_gvd = [-10] * len(optimization_frequencies)
-    optimization_k = [7525490.948438734, 7615650.306678591, 7705826.377978483, 7796019.117530407, 7886228.524264564,
-                      7976455.239596077, 8066699.91541423, 8156962.99235593, 8247244.553439956, 8337544.55833482,
-                      8427863.391750852]
-    optimization_k[len(optimization_k) // 2] += 10000
+    waveguide_k = [7525490.948438734, 7615650.306678591, 7705826.377978483, 7796019.117530407, 7886228.524264564,
+                   7976455.239596077, 8066699.91541423, 8156962.99235593, 8247244.553439956, 8337544.55833482,
+                   8427863.391750852]
 
     # Calculate the GVD at each wavelength
     for frequency in optimization_frequencies:
@@ -344,7 +343,7 @@ def create_objective(sim_space: optplan.SimulationSpace
     # we minimize `1 - power`.
     power_obj = 0
     for power in power_objs:
-        power_obj += 1 * (1 - power) ** 2
+        power_obj += 1E3 * (1 - power) ** 2
 
     # Minimize distance between simulated GVD and goal GVD at each wavelength
     # gvd_obj = 0
@@ -352,8 +351,20 @@ def create_objective(sim_space: optplan.SimulationSpace
     #     gvd_obj += 1E-3 * optplan.abs(goal - gvd) ** 2
 
     k_obj = 0
-    for goal, k in zip(optimization_k, k_list):
-        k_obj += 1E-8 * optplan.abs(goal - k) ** 2
+    diff_k = []
+    for measured_k, wg_k in zip(k_list, waveguide_k):
+        diff_k.append(measured_k - wg_k)
+    mid = len(diff_k) // 2
+    diff_first_half_k = diff_k[:mid]
+    diff_second_half_k = diff_k[mid + 1:]
+
+    for k_prev, k_next in zip(diff_first_half_k[:-1], diff_first_half_k[1:]):
+        k_obj += 1E-6 * optplan.IndicatorPlus(function=optplan.abs(k_next - k_prev), alpha=200, power=2)
+    for k_prev, k_next in zip(diff_second_half_k[:-1], diff_second_half_k[1:]):
+        k_obj += 1E-6 * optplan.IndicatorPlus(function=optplan.abs(k_next - k_prev), alpha=200, power=2)
+
+    k_obj += 1E-5 * optplan.IndicatorMinus(function=(diff_k[mid] - diff_k[mid - 1]), beta=1000, power=2)
+    k_obj += 1E-5 * optplan.IndicatorPlus(function=(diff_k[mid + 1] - diff_k[mid]), alpha=-1000, power=2)
 
     obj = power_obj + k_obj
 
@@ -437,8 +448,8 @@ def create_transformations(
         # init_method=optplan.WaveguideInitializer3(lower_min=0, lower_max=.4, upper_min=.7, upper_max=1,
         #                                           extent_frac_x=1, extent_frac_y=1/2,
         #                                           center_frac_x=1/2, center_frac_y=1/8),
-        init_method=optplan.GradientInitializer(min=0.1, max=1, random=0.3, extent_frac_x=1, extent_frac_y=0.4,
-                                                center_frac_x=0.5, center_frac_y=0.39)
+        init_method=optplan.GradientInitializer(min=0.2, max=1, random=0.3, extent_frac_x=1, extent_frac_y=0.6,
+                                                center_frac_x=0.5, center_frac_y=0.4)
         # init_method=optplan.UniformInitializer(min_val=0, max_val=0)
     )
 

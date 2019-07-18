@@ -142,7 +142,8 @@ def _eval_fun_vals(fun_vals: Dict[NodeId, np.ndarray], fun_map: FunctionMap,
 
                 # Compute the function value.
                 if _is_old_fun(fun_map[node]):
-                    fun_vals[node] = fun_map[node].calculate_objective_function(
+                    map_node_ = fun_map[node]
+                    fun_vals[node] = map_node_.calculate_objective_function(
                         param)
                 else:
                     input_vals = [fun_vals[in_node] for in_node in graph[node]]

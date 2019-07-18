@@ -86,6 +86,30 @@ class PowerComp(optplan.Function):
 
 
 @optplan.register_node_type()
+class IndicatorPlus(optplan.Function):
+    """Defines a penalty function to check if a function is above some value
+
+    penalty = (obj>alpha)*(obj - alpha)**power
+    """
+    type = schema_utils.polymorphic_model_type("function.indicator_plus")
+    function = optplan.ReferenceType(optplan.Function)
+    alpha = types.FloatType()
+    power = types.IntType()
+
+
+@optplan.register_node_type()
+class IndicatorMinus(optplan.Function):
+    """Defines a penalty function to check if a function is above some value
+
+    penalty = (obj<beta)*(beta - obj)**power
+    """
+    type = schema_utils.polymorphic_model_type("function.indicator_minus")
+    function = optplan.ReferenceType(optplan.Function)
+    beta = types.FloatType()
+    power = types.IntType()
+
+
+@optplan.register_node_type()
 class Abs(optplan.Function):
     """Defines absolute value of a function.
 
