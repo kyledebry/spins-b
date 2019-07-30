@@ -478,3 +478,57 @@ This function creates the sequence of optimizations that the program will run. I
         return trans_list
 
 The last bit of code creates the different stages of optimization. The main thing here is setting the ``CubicParamSigmoidStrength`` for each stage, the number of iterations for each stage, and the number of stages. The ``CubicParamSigmoidStrength`` sets how 'smooth' the epsilon distribution is. SPINS-B only optimizes a continuous epsilon distribution, but increasing this value will make the distribution appear more binary. A value of 10 or so results in a distribution that is a very good approximation of binary, but it is best to start with a much lower value and increase over time.
+
+Breakdown of ``test_phc.py``
+----------------------------
+
+This file uses the functions in ``phc.py`` to set up the optimization routine and then runs the routine.
+
+.. code:: python
+
+    import os
+    import shutil
+
+    import phc
+    from monitor_plot import plot
+    from spins.invdes import problem_graph
+    from spins.invdes.problem_graph import optplan
+
+    CUR_DIR = os.path.dirname(os.path.realpath(__file__))
+
+
+    def _copyfiles(src_folder, dest_folder, filenames):
+        for filename in filenames:
+            shutil.copyfile(
+                os.path.join(src_folder, filename),
+                os.path.join(dest_folder, filename))
+
+Imports and file management.
+
+.. code:: python
+
+    def test_phc(tmpdir):
+        folder = os.path.join(tmpdir, 'phc_test')
+        fg = "sim_fg_wg.gds"
+        bg = "sim_bg_wg.gds"
+        _copyfiles(CUR_DIR, folder, [fg, bg])
+
+The first piece gets the GDS files that are used to define the epsilon distribution from the current directory. They can be modified with a program like KLayoutEditor.
+
+.. code:: python
+
+        sim_space = phc.create_sim_space(fg, bg)
+        obj, monitors = phc.create_objective(sim_space)
+        trans_list = phc.create_transformations(
+            obj, monitors, sim_space, cont_iters=40, min_feature=60, num_stages=5)
+        plan = optplan.OptimizationPlan(transformations=trans_list)
+        problem_graph.run_plan(plan, folder)
+
+This section uses the functions in ``phc.py`` to create the simulation space, objective and monitors, and transformation list. Then it turns it all into an optimization plan and runs the plan.
+
+.. code:: python
+
+    test_phc(CUR_DIR)
+    plot()
+
+This code calls the previous function, running the optimization plan. After the optimization is finished, ``plot()`` calls a function in ``monitor_plot.py`` which uses ``monitor_spec_dynamic.yml`` and plots graphs of all the monitors and objectives.
