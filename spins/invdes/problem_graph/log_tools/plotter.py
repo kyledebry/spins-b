@@ -81,6 +81,9 @@ def plot_scalar_monitors(
             plot_data.iterations,
             plot_data.data,
             label=monitor_description.joiner_id)
+        print(monitor_description.joiner_id)
+        print(plot_data.iterations)
+        print(plot_data.data)
         for change in plot_data.transformation_changes:
             axs.axvline(x=change, color="k", linestyle="--")
         if same_plt:

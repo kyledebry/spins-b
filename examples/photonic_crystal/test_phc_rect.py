@@ -1,7 +1,8 @@
 import os
 import shutil
 
-import wdm2
+import phc_rect
+from monitor_plot import plot
 from spins.invdes import problem_graph
 from spins.invdes.problem_graph import optplan
 
@@ -15,16 +16,19 @@ def _copyfiles(src_folder, dest_folder, filenames):
             os.path.join(dest_folder, filename))
 
 
-def test_wdm2(tmpdir):
-    folder = os.path.join(tmpdir, 'wdm2_test_1')
-    _copyfiles(CUR_DIR, folder, ["sim_fg.gds", "sim_bg.gds"])
+def test_phc(tmpdir):
+    folder = os.path.join(tmpdir, 'phc_gvd_test')
+    fg = "sim_fg_rect.gds"
+    bg = "sim_bg_rect.gds"
+    _copyfiles(CUR_DIR, folder, [fg, bg])
 
-    sim_space = wdm2.create_sim_space("sim_fg.gds", "sim_bg.gds")
-    obj, monitors = wdm2.create_objective(sim_space)
-    trans_list = wdm2.create_transformations(
-        obj, monitors, sim_space, cont_iters=30, min_feature=50)
+    sim_space = phc_rect.create_sim_space(fg, bg)
+    obj, monitors = phc_rect.create_objective(sim_space)
+    trans_list = phc_rect.create_transformations(
+        obj, monitors, sim_space, cont_iters=42, min_feature=60, num_stages=6)
     plan = optplan.OptimizationPlan(transformations=trans_list)
     problem_graph.run_plan(plan, folder)
 
 
-test_wdm2(CUR_DIR)
+test_phc(CUR_DIR)
+plot()

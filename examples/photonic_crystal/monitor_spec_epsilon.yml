@@ -1,0 +1,9 @@
+monitor_list:
+- monitor_names:
+  - Epsilon
+  monitor_type: planar
+  vector_operation: z
+- monitor_names:
+  - 192.0 THz Field
+  monitor_type: planar
+  vector_operation: magnitude

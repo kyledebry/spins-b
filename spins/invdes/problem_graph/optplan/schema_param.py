@@ -120,7 +120,7 @@ class WaveguideInitializer3(Initializer):
 
 @optplan.register_node_type()
 class GradientInitializer(Initializer):
-    """Initializes parametrization using with a rectangular epsilon shape.
+    """Initializes parametrization using with a rectangular gradient epsilon shape.
 
     The two levels of the step function can optionally have uniformly random
     initialization.
@@ -142,6 +142,32 @@ class GradientInitializer(Initializer):
     extent_frac_x = types.FloatType()
     extent_frac_y = types.FloatType()
     center_frac_x = types.FloatType()
+    center_frac_y = types.FloatType()
+
+
+@optplan.register_node_type()
+class PeriodicInitializer(Initializer):
+    """Initializes parametrization using with a periodic epsilon shape.
+
+    The two levels of the step function can optionally have uniformly random
+    initialization.
+
+    Attributes:
+        random: amount of random variation above min or below max
+        min: minimum value of the lower epsilon region
+        max: maximum value of the higher epsilon region
+        period: length of the period in nanometers
+        grid_size: size of simulation cell in nanometers
+        extent_frac_y: fraction of the height of the region to take up
+        center_frac_y: fraction of the height of the region to center the peridicity
+    """
+    type = schema_utils.polymorphic_model_type("initializer.periodic")
+    random = types.FloatType()
+    min = types.FloatType()
+    max = types.FloatType()
+    period = types.FloatType()
+    sim_width = types.FloatType()
+    extent_frac_y = types.FloatType()
     center_frac_y = types.FloatType()
 
 

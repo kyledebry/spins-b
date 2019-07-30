@@ -346,6 +346,8 @@ class Logger:
         wave_vector_arr = []
         wave_vector_derivative = []
         wave_vector_freq_arr = []
+        power_arr = []
+        power_freq_arr = []
 
         # Get monitor data.
         monitor_data = {}
@@ -355,12 +357,20 @@ class Logger:
             for mon, mon_val in zip(monitor_list, mon_vals):
                 monitor_data[mon.name] = mon_val
 
-                if "GVD" in mon.name:
+                if "GVD" in mon.name and "Objective" not in mon.name:
                     gvd_freq_arr.append(float(mon.name[:6]))
                     gvd_arr.append(np.real(mon_val))
                 elif "Wave Vector" in mon.name:
                     wave_vector_freq_arr.append(float(mon.name[:6]))
                     wave_vector_arr.append(np.real(mon_val))
+                elif "Power Out" in mon.name:
+                    power_freq_arr.append(float(mon.name.split(' ')[0]))
+                    power_arr.append(np.real(mon_val))
+
+        # loss_str = "Loss objective: {}".format(np.real(monitor_data["Loss Objective"]))
+        # # edge_str = "Transmission objective: {}".format(np.real(monitor_data["Transmission Objective"]))
+        # # res_str = "Resonance objective: {}".format(np.real(monitor_data["Resonance Transmission Objective"]))
+        # gvd_str = "GVD objective: {}".format(np.real(monitor_data["GVD Objective"]))
 
         # wave_vector_freq = np.array(wave_vector_freq_arr)
         # wave_vector_derivative = np.gradient(wave_vector_arr, wave_vector_freq)
@@ -369,15 +379,10 @@ class Logger:
         # d_int = wave_vector_freq - (mid_freq - frequency_fsr * (wave_vector_freq - mid_freq))
         # k_f = np.array(wave_vector_arr) / wave_vector_freq
         # gvd_np = 1 / (np.pi * np.pi) * np.gradient(wave_vector_derivative, wave_vector_freq)
-        print(wave_vector_freq_arr)
-        print(wave_vector_arr)
-
-        waveguide_k = -np.array(
-            [7525490.948438734, 7615650.306678591, 7705826.377978483, 7796019.117530407, 7886228.524264564,
-             7976455.239596077, 8066699.91541423, 8156962.99235593, 8247244.553439956, 8337544.55833482,
-             8427863.391750852])
+        print(gvd_arr)
 
         if event["state"] in ["optimizing", "start"]:
+            # self._logger.info(loss_str + "; " + gvd_str)
             self._logger.info("Objective: " + str(np.real(monitor_data['Objective'].max())))
 
             if event["state"] is "start":
@@ -396,9 +401,9 @@ class Logger:
 
                 plt.figure()
                 if self._transform_name[-1].isdigit():
-                    plt.title("k/2pi * vacuum wavelength: {}.0".format(int(self._transform_name[-1]) + 1))
+                    plt.title("Effective Index: {}.0".format(int(self._transform_name[-1]) + 1))
                 else:
-                    plt.title("k/2pi * vacuum wavelength: Initial")
+                    plt.title("Effective Index: Initial")
                 plt.xlabel("Frequency (THz)")
                 plt.ylabel("k/2pi * lambda")
                 plt.plot(wave_vector_freq_arr, np.array(wave_vector_arr) * wavelength / (2 * np.pi))
@@ -407,12 +412,12 @@ class Logger:
                 plt.figure()
                 if self._transform_name[-1].isdigit():
                     plt.title(
-                        "Wavevector difference from straight waveguide: {}.0".format(int(self._transform_name[-1]) + 1))
+                        "Transmission: {}.0".format(int(self._transform_name[-1]) + 1))
                 else:
-                    plt.title("k/2pi * vacuum wavelength: Initial")
+                    plt.title("Transmission: Initial")
                 plt.xlabel("Frequency (THz)")
-                plt.ylabel("k - k_waveguide [1/m]")
-                plt.plot(wave_vector_freq_arr, np.array(wave_vector_arr) + np.array(waveguide_k))
+                plt.ylabel("Power Transmission")
+                plt.plot(power_freq_arr, power_arr)
                 plt.show()
             elif self._transform_name[-1].isdigit():
                 plot_label_major = int(self._transform_name[-1]) + 1
@@ -428,18 +433,17 @@ class Logger:
                 wavelength = 299792458 / (np.array(wave_vector_freq_arr) * 1E12)
 
                 plt.figure()
-                plt.title("k/2pi * vacuum wavelength: {}.{}".format(plot_label_major, plot_label_minor))
+                plt.title("Effective Index: {}.{}".format(plot_label_major, plot_label_minor))
                 plt.xlabel("Frequency (THz)")
                 plt.ylabel("k/2pi * lambda")
                 plt.plot(wave_vector_freq_arr, np.array(wave_vector_arr) * wavelength / (2 * np.pi))
                 plt.show()
 
                 plt.figure()
-                plt.title("Wavevector difference from straight waveguide: {}.{}".format(plot_label_major,
-                                                                                        plot_label_minor))
+                plt.title("Transmission: {}.{}".format(plot_label_major, plot_label_minor))
                 plt.xlabel("Frequency (THz)")
-                plt.ylabel("k - k_waveguide [1/m]")
-                plt.plot(wave_vector_freq_arr, np.array(wave_vector_arr) + np.array(waveguide_k))
+                plt.ylabel("Power Transmission")
+                plt.plot(power_freq_arr, power_arr)
                 plt.show()
 
         # Get workspace parameters.
@@ -471,7 +475,7 @@ class Logger:
             pickle.dump(data, handle)
 
         if event["state"] in ["optimizing", "start"]:
-            save_folder = os.path.join(os.getcwd(), 'GVD_test_wg')
+            save_folder = os.path.join(os.getcwd(), 'phc_ideal')
             spec_folder = os.getcwd()
             df = log_tools.create_log_data_frame(log_tools.load_all_logs(save_folder))
             monitor_spec_filename = os.path.join(spec_folder, "monitor_spec_epsilon.yml")

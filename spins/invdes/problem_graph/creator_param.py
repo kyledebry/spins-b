@@ -129,6 +129,39 @@ class GradientDistribution:
         return distribution
 
 
+@optplan.register_node(optplan.PeriodicInitializer)
+class PeriodicDistribution:
+    def __init__(self, params: optplan.PeriodicInitializer,
+                 work: workspace.Workspace) -> None:
+        self._params = params
+
+    def __call__(self, shape: List[int]) -> np.ndarray:
+        distribution = np.random.uniform(self._params.min, self._params.min + self._params.random, shape)
+        add_max = self._params.max - self._params.min - self._params.random
+        center_y = self._params.center_frac_y * shape[1]
+        extent_y = self._params.extent_frac_y * shape[1]
+        start_y = int(round(center_y - extent_y / 2))
+        end_y = int(round(center_y + extent_y / 2))
+        cell_size = self._params.sim_width / shape[0]
+        period_num_cells = self._params.period / cell_size
+
+        for x in range(shape[0]):
+            period_frac_start = (x % period_num_cells) / period_num_cells
+            period_frac_end = period_frac_start + 1 / period_num_cells
+            if 0.5 <= period_frac_start < 1 and 0.5 <= period_frac_end < 1:
+                distribution[x, start_y:end_y] += add_max
+            elif 0 <= period_frac_start <= 0.5 <= period_frac_end <= 1:
+                frac_high = (period_frac_end - 0.5) * period_num_cells
+                distribution[x, start_y:end_y] += frac_high * add_max
+            elif 0.5 <= period_frac_start <= 1 <= period_frac_end:
+                frac_high = (1 - period_frac_start) * period_num_cells
+                distribution[x, start_y:end_y] += frac_high * add_max
+
+        distribution[:, 0:start_y] += add_max
+
+        return distribution
+
+
 @optplan.register_node(optplan.PixelParametrization)
 def create_pixel_param(
         params: optplan.PixelParametrization,
