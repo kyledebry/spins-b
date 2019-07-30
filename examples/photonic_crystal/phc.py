@@ -58,8 +58,9 @@ def create_sim_space(gds_fg: str, gds_bg: str) -> optplan.SimulationSpace:
 
     The simulation space contains information about the boundary conditions,
     gridding, and design region of the simulation. The material stack is
-    220 nm of silicon surrounded by oxide. The refractive index of the silicon
-    changes based on whether the global variable `SIM_2D` is set.
+    220 nm of Ta2O5 surrounded by oxide. The refractive indices used are NOT
+    effective 2D indices, so the simulations will likely not translate to
+    real 3D devices until that is fixed.
 
     Args:
         gds_fg: Location of the foreground GDS file.
@@ -113,30 +114,6 @@ def create_sim_space(gds_fg: str, gds_bg: str) -> optplan.SimulationSpace:
         boundary_conditions=[optplan.BlochBoundary()] * 6,
         pml_thickness=pml_thickness,
     )
-
-
-def create_gvd_objective(phase: List[optplan.PhaseAbsolute], d_wavelength) -> optplan.Function:
-    """Creates a group velocity dispersion objective function evaluated at a given frequency.
-
-    Args:
-        phase: three phase functions that are closely spaced in frequency for calculating differences
-        d_wavelength: the change in wavelength between the three phase measurements
-    """
-
-    # Convert wavelength to meters
-    d_wavelength_m = d_wavelength * NM_TO_M
-
-    # First derivative (up to constant)
-    d_phase_1 = phase[1] - phase[0]
-    d_phase_2 = phase[2] - phase[1]
-
-    # Second derivative (including all constants)
-    gvd_si_units = ((d_wavelength_m / C) ** 2) * (d_phase_2 - d_phase_1) / (WIDTH * NM_TO_M)
-
-    # Convert to traditional units of fs^2/mm
-    gvd = gvd_si_units * S2M_TO_FS2MM
-
-    return gvd
 
 
 def finite_difference_second_derivative(f: List[optplan.Function], delta: float, i: int) -> optplan.Function:
@@ -224,13 +201,6 @@ def create_objective(sim_space: optplan.SimulationSpace
         power=1.0,
     )
 
-    # Create the region in which to optimize the phase in.
-    phase_region = optplan.Region(
-        center=[path_length // 2, -250, 0],
-        extents=[GRID_SPACING, 500, 6 * GRID_SPACING],
-        power=1,
-    )
-
     # Create a path from the source to the output to track the phase over.
     phase_path = optplan.Region(
         center=[0, -250, 0],
@@ -247,6 +217,7 @@ def create_objective(sim_space: optplan.SimulationSpace
         power=1,
     )
 
+    # Measure power in waveguide mode that has been reflected to go the other direction
     overlap_reverse = optplan.WaveguideModeOverlap(
         center=[-(path_length // 2) - 3 * GRID_SPACING, -250, 0],
         extents=[GRID_SPACING, 2500, 600],

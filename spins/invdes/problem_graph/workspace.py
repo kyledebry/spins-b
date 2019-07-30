@@ -341,14 +341,6 @@ class Logger:
         # Increment log_counter.
         self._log_counter += 1
 
-        gvd_arr = []
-        gvd_freq_arr = []
-        wave_vector_arr = []
-        wave_vector_derivative = []
-        wave_vector_freq_arr = []
-        power_arr = []
-        power_freq_arr = []
-
         # Get monitor data.
         monitor_data = {}
         if monitor_list:
@@ -356,95 +348,6 @@ class Logger:
                 [self._work.get_object(mon) for mon in monitor_list], param)
             for mon, mon_val in zip(monitor_list, mon_vals):
                 monitor_data[mon.name] = mon_val
-
-                if "GVD" in mon.name and "Objective" not in mon.name:
-                    gvd_freq_arr.append(float(mon.name[:6]))
-                    gvd_arr.append(np.real(mon_val))
-                elif "Wave Vector" in mon.name:
-                    wave_vector_freq_arr.append(float(mon.name[:6]))
-                    wave_vector_arr.append(np.real(mon_val))
-                elif "Power Out" in mon.name:
-                    power_freq_arr.append(float(mon.name.split(' ')[0]))
-                    power_arr.append(np.real(mon_val))
-
-        # loss_str = "Loss objective: {}".format(np.real(monitor_data["Loss Objective"]))
-        # # edge_str = "Transmission objective: {}".format(np.real(monitor_data["Transmission Objective"]))
-        # # res_str = "Resonance objective: {}".format(np.real(monitor_data["Resonance Transmission Objective"]))
-        # gvd_str = "GVD objective: {}".format(np.real(monitor_data["GVD Objective"]))
-
-        # wave_vector_freq = np.array(wave_vector_freq_arr)
-        # wave_vector_derivative = np.gradient(wave_vector_arr, wave_vector_freq)
-        # frequency_fsr = 2 * np.pi / 5E-6 / np.abs(wave_vector_derivative)
-        # mid_freq = wave_vector_freq_arr[len(wave_vector_freq_arr) // 2]
-        # d_int = wave_vector_freq - (mid_freq - frequency_fsr * (wave_vector_freq - mid_freq))
-        # k_f = np.array(wave_vector_arr) / wave_vector_freq
-        # gvd_np = 1 / (np.pi * np.pi) * np.gradient(wave_vector_derivative, wave_vector_freq)
-        print(gvd_arr)
-
-        if event["state"] in ["optimizing", "start"]:
-            # self._logger.info(loss_str + "; " + gvd_str)
-            self._logger.info("Objective: " + str(np.real(monitor_data['Objective'].max())))
-
-            if event["state"] is "start":
-                if self._transform_name[-1].isdigit():
-                    title = "GVD Optimization: {}.0".format(int(self._transform_name[-1]) + 1)
-                else:
-                    title = "GVD Optimization: Initial"
-                plt.figure()
-                plt.title(title)
-                plt.xlabel("Frequency (THz)")
-                plt.ylabel("GVD (fs^2/mm)")
-                plt.plot(gvd_freq_arr, gvd_arr)
-                plt.show()
-
-                wavelength = 299792458 / (np.array(wave_vector_freq_arr) * 1E12)
-
-                plt.figure()
-                if self._transform_name[-1].isdigit():
-                    plt.title("Effective Index: {}.0".format(int(self._transform_name[-1]) + 1))
-                else:
-                    plt.title("Effective Index: Initial")
-                plt.xlabel("Frequency (THz)")
-                plt.ylabel("k/2pi * lambda")
-                plt.plot(wave_vector_freq_arr, np.array(wave_vector_arr) * wavelength / (2 * np.pi))
-                plt.show()
-
-                plt.figure()
-                if self._transform_name[-1].isdigit():
-                    plt.title(
-                        "Transmission: {}.0".format(int(self._transform_name[-1]) + 1))
-                else:
-                    plt.title("Transmission: Initial")
-                plt.xlabel("Frequency (THz)")
-                plt.ylabel("Power Transmission")
-                plt.plot(power_freq_arr, power_arr)
-                plt.show()
-            elif self._transform_name[-1].isdigit():
-                plot_label_major = int(self._transform_name[-1]) + 1
-                plot_label_minor = event["iteration"]
-
-                plt.figure()
-                plt.title("GVD Optimization: {}.{}".format(plot_label_major, plot_label_minor))
-                plt.xlabel("Frequency (THz)")
-                plt.ylabel("GVD (fs^2/mm)")
-                plt.plot(gvd_freq_arr, gvd_arr)
-                plt.show()
-
-                wavelength = 299792458 / (np.array(wave_vector_freq_arr) * 1E12)
-
-                plt.figure()
-                plt.title("Effective Index: {}.{}".format(plot_label_major, plot_label_minor))
-                plt.xlabel("Frequency (THz)")
-                plt.ylabel("k/2pi * lambda")
-                plt.plot(wave_vector_freq_arr, np.array(wave_vector_arr) * wavelength / (2 * np.pi))
-                plt.show()
-
-                plt.figure()
-                plt.title("Transmission: {}.{}".format(plot_label_major, plot_label_minor))
-                plt.xlabel("Frequency (THz)")
-                plt.ylabel("Power Transmission")
-                plt.plot(power_freq_arr, power_arr)
-                plt.show()
 
         # Get workspace parameters.
         parameter_data = {}
@@ -473,14 +376,6 @@ class Logger:
             self._path, os.path.join("step{}.pkl".format(self._log_counter)))
         with open(file_path, "wb") as handle:
             pickle.dump(data, handle)
-
-        if event["state"] in ["optimizing", "start"]:
-            save_folder = os.path.join(os.getcwd(), 'phc_ideal')
-            spec_folder = os.getcwd()
-            df = log_tools.create_log_data_frame(log_tools.load_all_logs(save_folder))
-            monitor_spec_filename = os.path.join(spec_folder, "monitor_spec_epsilon.yml")
-            monitor_descriptions = log_tools.load_from_yml(monitor_spec_filename)
-            log_tools.plot_monitor_data(df, monitor_descriptions, None)
 
 
 def get_latest_log_step(folder: str) -> int:
