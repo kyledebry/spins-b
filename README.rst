@@ -1,14 +1,13 @@
-.. image:: https://travis-ci.com/stanfordnqp/spins-b.svg?branch=master
-    :target: https://travis-ci.com/stanfordnqp/spins-b
-    
-SPINS-B
-=======
+SPINS-B (modified)
+==================
 
 SPINS-B is the open source version of `SPINS <http://techfinder.stanford.edu/technologies/S18-012_inverse-design-software-for>`_,
 a framework for gradient-based (adjoint) photonic optimization developed over
 the past decade at Jelena Vuckovic's `Nanoscale and Quantum Photonics Lab <http://nqp.stanford.edu>`_
 at Stanford University. For commercial use, the full version can be licensed
 through the `Stanford Office of Technology and Licensing <http://techfinder.stanford.edu/technologies/S18-012_inverse-design-software-for>`_ (see FAQ).
+
+This fork by Kyle DeBry adds components for optimizing dispersion of waveguides.
 
 
 Features
@@ -55,11 +54,10 @@ Simply clone the SPINS-B repository and run :code:`pip`:
 
 Getting Started
 ---------------
-See the grating coupler optimization example and the wavelength demultiplexer
-example in the :code:`examples` folder. The grating coupler example covers
-setting up, running, and resuming a 2D optimization. The wavelength
-demultiplexer example covers setting up and running a 3D optimization as well
-as various ways of processing the optimization logs.
+See the wavelength demultiplexer
+example in the :code:`examples` folder.
+
+The ``examples`` folder and ``spins > invdes > problem_graph`` folder both have READMEs with more documentation.
 
 More documentation is forthcoming.
 
