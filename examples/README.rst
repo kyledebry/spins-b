@@ -212,3 +212,323 @@ This function uses the previous function to calculate the GVD. It assumes that a
         )
 
 This section creates the source of the field (``wg_source``) at the given position ``center`` and size ``extents``. It also creates several ``WaveguideModeOverlap`` s that are needed to measure several things. First, there is one at the output for measuring the output power, and one pointing backwards (``normal=[-1, 0, 0]``) near the input to measure any power reflected into the reverse waveguide mode. Then, there is ``phase_path`` which is a ``Region``, or simple rectangular prism. This and ``overlap_in`` are needed to measure the phase using the ``WaveguidePhase`` class. The ``phase_path`` should extend from the center of ``overlap_in`` to the center of ``overlap_out`` so the phase can be 'unrolled' along it.
+
+.. code:: python
+
+        # Keep track of metrics and fields that we want to monitor.
+        k_list = []
+        power_forward_objs = []
+        power_reverse_objs = []
+        monitor_list = []
+        yaml_phase_monitors = []
+        yaml_field_monitors = []
+        yaml_power_monitors = []
+        yaml_scalar_monitors = []
+        yaml_epsilon_monitors = []
+        yaml_spec = {'monitor_list': []}
+
+        # Set the wavelengths, wavelength differences, and goal GVDs to simulate and optimize
+        optimization_frequencies, frequency_step = np.linspace(start=160, stop=220, num=31, retstep=True)
+
+        # Calculate the GVD at each wavelength
+        for frequency in optimization_frequencies:
+            sim_wavelength = thz_to_nm(frequency)
+
+            epsilon = optplan.Epsilon(
+                simulation_space=sim_space,
+                wavelength=sim_wavelength,
+            )
+            yaml_epsilon_monitors.append('{} THz Epsilon'.format(frequency))
+            monitor_list.append(optplan.FieldMonitor(name='{} THz Epsilon'.format(frequency),
+                                                     function=epsilon,
+                                                     normal=[0, 0, 1],
+                                                     center=[0, 0, 0]))
+
+            sim = optplan.FdfdSimulation(
+                source=wg_source,
+                # Use a direct matrix solver (e.g. LU-factorization) on CPU for
+                # 2D simulations and the GPU Maxwell solver for 3D.
+                solver="local_direct" if SIM_2D else "maxwell_cg",
+                wavelength=sim_wavelength,
+                simulation_space=sim_space,
+                epsilon=epsilon,
+            )
+                       
+This part of the loop creates a bew ``FdfdSimulation`` and several monitors for each frequency in ``optimization_frequencies``.
+
+.. code:: python
+
+            # Create wave vector objectives and monitors
+            phase = optplan.WaveguidePhase(simulation=sim, overlap_in=overlap_in, overlap_out=overlap_out, path=phase_path)
+            k = optplan.abs(phase / (path_length * NM_TO_M))  # Path length is in nanometers
+
+            monitor_list.append(optplan.SimpleMonitor(name="{} THz Wave Vector".format(frequency), function=k))
+            # yaml_scalar_monitors.append('{} THz Wave Vector'.format(frequency))
+            k_list.append(k)
+
+Here, we make a ``WaveguidePhase`` monitor, and then divide that by the length of the path between the input and output regions where the phase is being measured to approximate the wavenumber of the field ``k``.
+
+.. code:: python
+
+            # Add the field to the monitor list
+            monitor_list.append(
+                optplan.FieldMonitor(
+                    name="{} THz Field".format(frequency),
+                    function=sim,
+                    normal=[0, 0, 1],
+                    center=[0, 0, 0],
+                ))
+            yaml_field_monitors.append('{} THz Field'.format(frequency))
+            yaml_phase_monitors.append('{} THz Field'.format(frequency))
+
+            # Only store epsilon information once because it is the same at each wavelength
+            if frequency == optimization_frequencies[len(optimization_frequencies) // 2]:
+                monitor_list.append(
+                    optplan.FieldMonitor(
+                        name="Epsilon",
+                        function=epsilon,
+                        normal=[0, 0, 1],
+                        center=[0, 0, 0]))
+
+This section of the loop is storing the fields and the epsilon distribution so we can look at them later.
+
+.. code:: python
+
+            # Create output power objectives and monitors
+            overlap_out_obj = optplan.Overlap(simulation=sim, overlap=overlap_out)
+            overlap_reverse_obj = optplan.Overlap(simulation=sim, overlap=overlap_reverse)
+            power_out = optplan.abs(overlap_out_obj) ** 2
+            power_reverse = optplan.abs(overlap_reverse_obj) ** 2
+            power_forward_objs.append(power_out)
+            power_reverse_objs.append(power_reverse)
+            monitor_list.append(optplan.SimpleMonitor(name="{} THz Power Out".format(frequency), function=power_out))
+            monitor_list.append(optplan.SimpleMonitor(name="{} THz Power Reverse".format(frequency),
+                                                      function=power_reverse))
+            yaml_power_monitors.append('{} THz Power Out'.format(frequency))
+            yaml_power_monitors.append('{} THz Power Reverse'.format(frequency))
+
+Here, we are making parts of the objective we want to minimize. We define objectives for the power in the forward and backward waveguide modes at each frequency.
+
+.. code:: python
+
+        # Calculate and store GVD functions and add to monitor list
+        gvd_list = create_gvd_multiple_difference(k_list, frequency_step * THZ_TO_HZ, ignore_endpoints=True)
+        for gvd, frequency in zip(gvd_list, optimization_frequencies[1:-1]):
+            monitor_list.append(optplan.SimpleMonitor(name="{} THz GVD".format(frequency), function=gvd))
+            yaml_scalar_monitors.append('{} THz GVD'.format(frequency))
+
+Using the finite difference GVD function, we can use the list of wavenumbers ``k`` for each frequency to approximate the GVD of the waveguide. Setting ``ignore_endpoints`` to ``True`` excludes the first and last GVD values from the results, as they are the hardest to approximate and least reliable.
+
+.. code:: python
+
+        # Spins minimizes the objective function, so to make `power` maximized,
+        # we minimize `1 - power`.
+        loss_obj = 0
+        edge_obj = 0
+        resonance_obj = 0
+        for power_fwd, power_rev in zip(power_forward_objs, power_reverse_objs):
+            loss_obj += (1 - power_fwd - power_rev) ** 2
+        for power_fwd in power_forward_objs[:12] + power_forward_objs[18:]:
+            edge_obj += (1 - power_fwd) ** 2
+        for power_rev in power_reverse_objs[:12] + power_reverse_objs[18:]:
+            edge_obj += power_rev ** 2
+        for power_fwd in power_forward_objs[14:16]:
+            resonance_obj += (0.8 - power_fwd) ** 2
+        for power_rev in power_reverse_objs[14:16]:
+            resonance_obj += (0.2 - power_rev) ** 2
+
+        monitor_list.append(optplan.SimpleMonitor(name="Loss Objective", function=loss_obj))
+        monitor_list.append(optplan.SimpleMonitor(name="Transmission Objective", function=edge_obj))
+        monitor_list.append(optplan.SimpleMonitor(name="Resonance Transmission Objective", function=resonance_obj))
+
+        obj = 1E3 * loss_obj + 1E2 * edge_obj + 50 * resonance_obj
+
+        monitor_list.append(optplan.SimpleMonitor(name="Objective", function=obj))
+        yaml_scalar_monitors.append('Objective')
+
+This is where the overall objective is defined. By adding the sub-objectives in quadrature, we can encourage SPINS to optimize all of the simultaneously. Picking the coefficients in front of each one is important to balance the weight of each part of the objective appropriately so none are ignored.
+
+.. code:: python
+
+        for monitor in yaml_power_monitors:
+            yaml_spec['monitor_list'].append({'monitor_names':    [monitor],
+                                              'monitor_type':     'scalar',
+                                              'scalar_operation': 'magnitude_squared'})
+        for monitor in yaml_field_monitors:
+            yaml_spec['monitor_list'].append({'monitor_names':    [monitor],
+                                              'monitor_type':     'planar',
+                                              'vector_operation': 'magnitude'})
+        for monitor in yaml_phase_monitors:
+            yaml_spec['monitor_list'].append({'monitor_names':    [monitor],
+                                              'monitor_type':     'planar',
+                                              'vector_operation': 'z',
+                                              'scalar_operation': 'phase'})
+        for monitor in yaml_scalar_monitors:
+            yaml_spec['monitor_list'].append({'monitor_names': [monitor],
+                                              'monitor_type':  'scalar'})
+
+        yaml_spec['monitor_list'].append({'monitor_names':    ['Epsilon'],
+                                          'monitor_type':     'planar',
+                                          'vector_operation': 'z'})
+
+        with open('monitor_spec_dynamic.yml', 'w') as monitor_spec_dynamic:
+            yaml.dump(yaml_spec, monitor_spec_dynamic, default_flow_style=False)
+        
+        return obj, monitor_list
+
+The last part of the function creates the file ``monitor_spec_dynamic.yml`` automatically. This file can be read in by the ``monitor_plot.py`` file to print out graphs of all of the interesting monitors and objectives after completing the optimization routine.
+
+.. code:: python
+
+    def create_transformations(
+            obj: optplan.Function,
+            monitors: List[optplan.Monitor],
+            sim_space: optplan.SimulationSpaceBase,
+            cont_iters: int,
+            num_stages: int = 3,
+            min_feature: float = 100,
+    ) -> List[optplan.Transformation]:
+        """Creates a list of transformations for the device optimization.
+
+        The transformations dictate the sequence of steps used to optimize the
+        device. The optimization uses `num_stages` of continuous optimization. For
+        each stage, the "discreteness" of the structure is increased (through
+        controlling a parameter of a sigmoid function).
+
+        Args:
+            obj: The objective function to minimize.
+            monitors: List of monitors to keep track of.
+            sim_space: Simulation space ot use.
+            cont_iters: Number of iterations to run in continuous optimization
+                total across all stages.
+            num_stages: Number of continuous stages to run. The more stages that
+                are run, the more discrete the structure will become.
+            min_feature: Minimum feature size in nanometers.
+            fab_obj: Objective including fabrication penalties to be used in the
+                second half of the optimization
+
+        Returns:
+            A list of transformations.
+        """
+        # Setup empty transformation list.
+        trans_list = []
+
+        # First do continuous relaxation optimization.
+        # This is done through cubic interpolation and then applying a sigmoid
+        # function.
+        param = optplan.CubicParametrization(
+            # Specify the coarseness of the cubic interpolation points in terms
+            # of number of Yee cells. Feature size is approximated by having
+            # control points on the order of `min_feature / GRID_SPACING`.
+            undersample=3.5 * min_feature / GRID_SPACING,
+            simulation_space=sim_space,
+            # init_method=optplan.WaveguideInitializer3(lower_min=0, lower_max=.4, upper_min=.7, upper_max=1,
+            #                                           extent_frac_x=1, extent_frac_y=1/2,
+            #                                           center_frac_x=1/2, center_frac_y=1/8),
+            init_method=optplan.GradientInitializer(min=0, max=1, random=0.3, extent_frac_x=1, extent_frac_y=0.4,
+                                                    center_frac_x=0.5, center_frac_y=0.55)
+            # init_method=optplan.UniformInitializer(min_val=0, max_val=0)
+            # init_method=optplan.PeriodicInitializer(random=0.2, min=0, max=1, period=400, sim_width=6000,
+            #                                         center_frac_y=0.5, extent_frac_y=0.4)
+        )
+
+This function creates the sequence of optimizations that the program will run. It also initializes the epsilon distribution. Here are four ways to initialize the distribution, three of which are commented out at the moment.
+
+.. code:: python
+
+    trans_list.append(
+            optplan.Transformation(
+                name="sigmoid_change_power_init",
+                parametrization=param,
+                # The larger the sigmoid strength value, the more "discrete"
+                # structure will be.
+                transformation=optplan.CubicParamSigmoidStrength(
+                    value=2,
+                )))
+
+        iters = max(cont_iters // num_stages, 1)
+        for stage in range(num_stages):
+            trans_list.append(
+                optplan.Transformation(
+                    name="opt_cont{}".format(stage),
+                    parametrization=param,
+                    transformation=optplan.ScipyOptimizerTransformation(
+                        optimizer="L-BFGS-B",
+                        objective=obj,
+                        monitor_lists=optplan.ScipyOptimizerMonitorList(
+                            callback_monitors=monitors,
+                            start_monitors=monitors,
+                            end_monitors=monitors),
+                        optimization_options=optplan.ScipyOptimizerOptions(
+                            maxiter=iters),
+                    ),
+                ))
+
+            if stage < num_stages - 1:
+                # Make the structure more discrete.
+                trans_list.append(
+                    optplan.Transformation(
+                        name="sigmoid_change{}".format(stage),
+                        parametrization=param,
+                        # The larger the sigmoid strength value, the more "discrete"
+                        # structure will be.
+                        transformation=optplan.CubicParamSigmoidStrength(
+                            value=2 * (stage + 2)),
+                    ))
+        return trans_list
+
+The last bit of code creates the different stages of optimization. The main thing here is setting the ``CubicParamSigmoidStrength`` for each stage, the number of iterations for each stage, and the number of stages. The ``CubicParamSigmoidStrength`` sets how 'smooth' the epsilon distribution is. SPINS-B only optimizes a continuous epsilon distribution, but increasing this value will make the distribution appear more binary. A value of 10 or so results in a distribution that is a very good approximation of binary, but it is best to start with a much lower value and increase over time.
+
+Breakdown of ``test_phc.py``
+----------------------------
+
+This file uses the functions in ``phc.py`` to set up the optimization routine and then runs the routine.
+
+.. code:: python
+
+    import os
+    import shutil
+
+    import phc
+    from monitor_plot import plot
+    from spins.invdes import problem_graph
+    from spins.invdes.problem_graph import optplan
+
+    CUR_DIR = os.path.dirname(os.path.realpath(__file__))
+
+
+    def _copyfiles(src_folder, dest_folder, filenames):
+        for filename in filenames:
+            shutil.copyfile(
+                os.path.join(src_folder, filename),
+                os.path.join(dest_folder, filename))
+
+Imports and file management.
+
+.. code:: python
+
+    def test_phc(tmpdir):
+        folder = os.path.join(tmpdir, 'phc_test')
+        fg = "sim_fg_wg.gds"
+        bg = "sim_bg_wg.gds"
+        _copyfiles(CUR_DIR, folder, [fg, bg])
+
+The first piece gets the GDS files that are used to define the epsilon distribution from the current directory. They can be modified with a program like KLayoutEditor.
+
+.. code:: python
+
+        sim_space = phc.create_sim_space(fg, bg)
+        obj, monitors = phc.create_objective(sim_space)
+        trans_list = phc.create_transformations(
+            obj, monitors, sim_space, cont_iters=40, min_feature=60, num_stages=5)
+        plan = optplan.OptimizationPlan(transformations=trans_list)
+        problem_graph.run_plan(plan, folder)
+
+This section uses the functions in ``phc.py`` to create the simulation space, objective and monitors, and transformation list. Then it turns it all into an optimization plan and runs the plan.
+
+.. code:: python
+
+    test_phc(CUR_DIR)
+    plot()
+
+This code calls the previous function, running the optimization plan. After the optimization is finished, ``plot()`` calls a function in ``monitor_plot.py`` which uses ``monitor_spec_dynamic.yml`` and plots graphs of all the monitors and objectives.
