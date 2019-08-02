@@ -17,9 +17,9 @@ def _copyfiles(src_folder, dest_folder, filenames):
 
 
 def test_phc(tmpdir):
-    folder = os.path.join(tmpdir, 'phc_ideal')
-    fg = "sim_fg_phc.gds"
-    bg = "sim_bg_phc.gds"
+    folder = os.path.join(tmpdir, 'phc_test')
+    fg = "sim_fg_wg.gds"
+    bg = "sim_bg_wg.gds"
     _copyfiles(CUR_DIR, folder, [fg, bg])
 
     sim_space = phc.create_sim_space(fg, bg)

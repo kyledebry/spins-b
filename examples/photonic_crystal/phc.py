@@ -4,7 +4,7 @@ Note that to run the 3D optimization, the 3D solver must be setup and running
 already.
 
 To process the optimization data, see the IPython notebook contained in this
-folder, or the monitor_plot_kerr.py file.
+folder, or the monitor_plot.py file.
 """
 from typing import List, Tuple, Union
 import yaml
@@ -175,12 +175,6 @@ def create_objective(sim_space: optplan.SimulationSpace
                      ) -> Tuple[optplan.Function, List[optplan.Monitor]]:
     """Creates the objective function to be minimized.
 
-    The objective is `(1 - I_Kerr)^2 + (1 - out)^2` where `I_Kerr` is the
-     intensity in the objective region that overlaps with the foreground
-     layer (places where there is waveguide material, e.g. Si), and `out`
-     is the power at the output port. Note that in an actual device, one
-     should also add terms corresponding to the rejection modes as well.
-
     Args:
         sim_space: Simulation space to use.
 
@@ -323,11 +317,6 @@ def create_objective(sim_space: optplan.SimulationSpace
 
     # Spins minimizes the objective function, so to make `power` maximized,
     # we minimize `1 - power`.
-
-    beginning_slice = slice(round(len(power_forward_objs) / 3))
-    end_slice = slice(-round(len(power_forward_objs) / 3))
-    resonance_slice = slice(round(len(power_forward_objs) / 2) - 1, round(len(power_forward_objs) / 2) + 1)
-
     loss_obj = 0
     edge_obj = 0
     resonance_obj = 0
@@ -367,10 +356,6 @@ def create_objective(sim_space: optplan.SimulationSpace
     for monitor in yaml_scalar_monitors:
         yaml_spec['monitor_list'].append({'monitor_names': [monitor],
                                           'monitor_type':  'scalar'})
-    # for monitor in yaml_epsilon_monitors:
-    #     yaml_spec['monitor_list'].append({'monitor_names':    [monitor],
-    #                                       'monitor_type':     'planar',
-    #                                       'vector_operation': 'z'})
 
     yaml_spec['monitor_list'].append({'monitor_names':    ['Epsilon'],
                                       'monitor_type':     'planar',
@@ -427,9 +412,9 @@ def create_transformations(
         # init_method=optplan.WaveguideInitializer3(lower_min=0, lower_max=.4, upper_min=.7, upper_max=1,
         #                                           extent_frac_x=1, extent_frac_y=1/2,
         #                                           center_frac_x=1/2, center_frac_y=1/8),
-        # init_method=optplan.GradientInitializer(min=0, max=1, random=0.3, extent_frac_x=1, extent_frac_y=0.4,
-        #                                         center_frac_x=0.5, center_frac_y=0.55)
-        init_method=optplan.UniformInitializer(min_val=0, max_val=0)
+        init_method=optplan.GradientInitializer(min=0, max=1, random=0.3, extent_frac_x=1, extent_frac_y=0.4,
+                                                center_frac_x=0.5, center_frac_y=0.55)
+        # init_method=optplan.UniformInitializer(min_val=0, max_val=0)
         # init_method=optplan.PeriodicInitializer(random=0.2, min=0, max=1, period=400, sim_width=6000,
         #                                         center_frac_y=0.5, extent_frac_y=0.4)
     )
